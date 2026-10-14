@@ -9,7 +9,7 @@
 This extension turns the static 2E-CTVRP of Nguyen, Piplani & Gunawan (see [`README_STATIC.md`](README_STATIC.md)) into
 the dynamic, event-driven truck–drone relief problem described in `bai_toan_iii_truck_drone.pdf`.
 It follows the plan in `dynamic_2e_ctvrp_research_guide_dataset_blueprint.md` (called "the guide"
-below), with the corrections listed in §5. **None of the original files were modified.** The
+below), with the corrections listed in §5. **None of the original code or data was modified** (the original README was only renamed to `README_STATIC.md`). The
 static solvers, the MILP and the shipped instances behave exactly as before.
 
 ## 1. What was added
