@@ -88,7 +88,72 @@ paired warm-vs-cold HV is a ready-made reward signal for spec eq. 12.
 
 ## 4. Benchmark results
 
-RESULTS_PLACEHOLDER
+Setup: 12 instances (guide §5.1) × 4 scenarios × 3 seeds × {static, restart, warm}.
+
+**CPU budget per re-plan:**
+- 1.5 s for n ≤ 15, 3 s for n = 20, 5 s for n = 50;
+- the t=0 plan gets 2×.
+
+All values are *realized*: the final plan is executed on the true disrupted network. The tables
+show the mean change relative to the `static` baseline; negative is better.
+Raw data: `results/dynamic_*.csv`. Regenerate the tables with `scripts/summarize_dynamic.py`.
+
+### 4.1 Single objective Z1, the paper's objective (`--mode so --weights 0,0,1`)
+
+| scale | 10% damage | 30% | 30% partial-obs | 50% |
+|---|---|---|---|---|
+| small (n ≤ 9), Z1 restart / warm | −0.06 / −0.06 | 0 / 0 | **+0.82 / +0.82** | −3.34 / −3.34 |
+| medium (n 11–13) | −0.83 / −0.67 | −0.07 / −0.05 | −2.64 / −2.74 | −4.99 / −5.12 |
+| large (n 20–50) | −2.04 / −1.98 | −0.66 / −0.79 | −1.90 / −1.81 | −4.47 / −3.97 |
+
+Overall, re-planning lowers realized Z1 by about 1.7% on average and by up to 5% at 50% damage.
+The gains grow with damage and with satellites per truck. Optimizing Z1 alone *worsens* the equity
+spread f2 (+10% on average), which is the trade-off the MO formulation is for.
+
+Under partial observability on small instances, re-planning on the *belief* is slightly worse than
+not re-planning (+0.8%). The Markov prediction expects degradation everywhere, which pushes the
+planner to avoid roads that are in fact open. This is a concrete argument for the spec's
+observation / exploration design (spec §4.8).
+
+**Tight re-planning deadline** (0.25 s per epoch, n = 20 and 50; `results/dynamic_so_z1_tight.csv`):
+
+| | restart | warm |
+|---|---|---|
+| mean ΔZ1 vs static | −1.36% | **−2.35%** |
+| runs better than static | 66.7% | **77.1%** |
+| warm beats restart (paired) | — | 66.7% of runs (tie 2%) |
+
+With a generous budget, cold restart and warm start end up equal: the residual problems are small
+enough to re-solve from scratch, and warm beats restart in only 42% of runs. Warm start, memory
+and segment focus pay off **when the re-planning deadline is tight**. That is the regime the
+spec's $r_{late\_decision}$ penalty targets, and it is where a learned operator controller has
+something to win.
+
+### 4.2 Multi-objective (`--mode mo`, commit = equal-weight point of the archive)
+
+| | Δf1 | Δf2 | Δf3 (Z1) |
+|---|---|---|---|
+| restart | −1.21% | −5.33% | −0.51% |
+| warm | **−1.40%** | **−7.27%** | **−0.68%** |
+
+**Paired hypervolume.** At each epoch, the warm strategy's residual problem is also solved cold
+with the same budget. HV is normalized by the union of both archives, with reference point
+1.1³:
+
+| epoch | scale | HV warm | HV cold | warm better | tie |
+|---|---|---|---|---|---|
+| 1 | large | **0.851** | 0.805 | 54% | 2% |
+| 1 | medium | **0.608** | 0.574 | 29% | 52% |
+| 1 | small | 0.486 | 0.489 | 2% | 92% |
+| 2 | large | **0.642** | 0.620 | 30% | 57% |
+| 2 | medium / small | equal | equal | 0% | 100% |
+
+Memory (the projected archive plus the elite pool) gives a better Pareto front right after a
+change on large instances. On small residual problems both approaches reach the same front.
+
+**Unmet demand.** Surges that land on a cluster already served cannot be recovered in this model.
+They account for 0–4.7% unmet demand, and re-planning reduces it only slightly by reaching clusters
+before the surge. See §6.1.
 
 ## 5. Review of the guide: what changed and why
 
