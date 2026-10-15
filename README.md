@@ -122,7 +122,8 @@ paired warm-vs-cold HV is a ready-made reward signal for spec eq. 12.
 
 ## 4. Benchmark results
 
-Setup (results regenerated with the speed+load battery model): 12 instances (guide §5.1) × 4 scenarios × 3 seeds × {static, restart, warm}.
+Setup (final results: speed+load battery model, re-delivery recourse, battery safeguards):
+12 instances (guide §5.1) × 4 scenarios × 3 seeds × {static, restart, warm}.
 
 **CPU budget per re-plan:**
 - 1.5 s for n ≤ 15, 3 s for n = 20, 5 s for n = 50;
@@ -130,47 +131,78 @@ Setup (results regenerated with the speed+load battery model): 12 instances (gui
 
 All values are *realized*: the final plan is executed on the true disrupted network. The tables
 show the mean change relative to the `static` baseline; negative is better.
+- `static` never re-plans, so it has no recourse.
+- f1 charges undelivered demand at $C_{ret}$, so unmet demand counts against a strategy.
+
 Raw data: `results/dynamic_*.csv`. Regenerate the tables with `scripts/summarize_dynamic.py`.
+
+### 4.0 Unmet demand
+
+| benchmark | strategy | runs with any unmet demand | mean unmet | worst run | re-delivery stops per run |
+|---|---|---|---|---|---|
+| single objective (144 runs) | static (no re-planning) | 96 (67%) | 1.69% | 5.60% | 0 |
+| | restart | **0** | **0.00%** | **0.00%** | 2.2 |
+| | warm | 1 | 0.00% | 0.44% | 2.2 |
+| tight deadline (48 runs) | static | 46 (96%) | 2.75% | 4.98% | 0 |
+| | restart | **0** | **0.00%** | **0.00%** | 5.1 |
+| | warm | 1 | 0.01% | 0.35% | 5.2 |
+| multi-objective (144 runs) | static | 101 (70%) | 1.83% | 5.45% | 0 |
+| | restart | 2 | 0.00% | 0.35% | 2.2 |
+| | warm | **0** | **0.00%** | **0.00%** | 2.2 |
+
+With recourse, re-planning delivers **all demand in 428 of 432 runs**. The 4 exceptions leave at
+most 0.44%. That is demand the active trucks could no longer carry: either the remaining fleet
+capacity ran out, or the only truck with goods left was already driving home. Without
+re-planning, two-thirds or more of the runs leave demand unserved.
 
 ### 4.1 Single objective Z1, the paper's objective (`--mode so --weights 0,0,1`)
 
-Mean change of realized Z1 vs. static, restart / warm (negative is better):
+Mean change vs. static, restart / warm (negative is better):
 
-| scale | 10% damage | 30% | 30% partial-obs | 50% |
-|---|---|---|---|---|
-| small (n ≤ 9) | −2.63 / −2.63 | −2.99 / −2.99 | **+1.66 / +1.64** | −2.77 / −2.77 |
-| medium (n 11–13) | −2.91 / −1.89 | −1.47 / −1.25 | −1.34 / −2.13 | −0.94 / −1.58 |
-| large (n 20–50) | −1.30 / −1.18 | −1.88 / −1.66 | −0.49 / −1.16 | −4.09 / −4.01 |
+| scale | Δf1 (prio.-weighted delivery) | ΔZ1 10% damage | ΔZ1 30% | ΔZ1 30% partial-obs | ΔZ1 50% |
+|---|---|---|---|---|---|
+| small (n ≤ 9) | −2.8 / −2.8 | −1.94 / −1.94 | −3.32 / −3.32 | **+1.46 / +1.46** | −2.19 / −2.19 |
+| medium (n 11–13) | −3.3 / −3.2 | −2.69 / −2.51 | −5.50 / −4.86 | −3.89 / −3.74 | −4.85 / −4.96 |
+| large (n 20–50) | −5.3 / −5.4 | +0.32 / +0.09 | −1.51 / −1.33 | **+1.51 / +0.57** | −4.29 / −4.31 |
 
-Overall, re-planning lowers realized Z1 by about 1.8% on average and by up to 4% at 50% damage.
-Optimizing Z1 alone *worsens* the equity spread f2 (+3% for restart, +6% for warm, on average),
-which is the trade-off the MO formulation is for.
+**Overall:** re-planning lowers realized f1 by about 3.8% and Z1 by about 2.2%, while delivering
+(almost) everything.
 
-Under partial observability on small instances, re-planning on the *belief* is worse than not
-re-planning (+1.6%). The Markov prediction expects degradation everywhere, which pushes the
-planner to avoid roads that are in fact open. This is a concrete argument for the spec's
-observation / exploration design (spec §4.8).
+**Costs and trade-offs:**
+- The extra re-delivery stops cost some fleet time. At 10% damage on large instances, Z1 is
+  slightly *higher* than static (+0.1–0.3%), because static simply leaves the surge undelivered.
+  f1, which charges unmet demand, still improves by about 4%.
+- Optimizing Z1 alone worsens the equity spread f2 (+3.4% / +4.5%). This is the trade-off the MO
+  formulation is for.
+- Under **partial observability**, re-planning on the *belief* is worse for Z1 than not
+  re-planning: +1.5% on small and +0.6–1.5% on large instances. The Markov prediction expects
+  degradation everywhere, which pushes the planner to avoid roads that are in fact open. This is
+  a concrete argument for the spec's observation / exploration design (spec §4.8).
 
 **Tight re-planning deadline** (0.25 s per epoch, n = 20 and 50; `results/dynamic_so_z1_tight.csv`):
 
 | | restart | warm |
 |---|---|---|
-| mean ΔZ1 vs static | −2.49% | **−3.00%** |
-| at 50% damage | −5.43% | **−6.22%** |
-| runs better than static | 66.7% | **79.2%** |
-| warm beats restart (paired) | — | 60.4% of runs (tie 12.5%) |
+| mean Δf1 vs static | −3.33% | **−5.32%** |
+| mean ΔZ1 vs static | +0.63% | **−1.55%** |
+| mean Δf2 vs static | +14.1% | **+0.6%** |
+| ΔZ1 at 50% damage | −4.06% | **−4.95%** |
+| runs with Z1 better than static | 41.7% | **54.2%** |
+| warm beats restart on Z1 (paired) | — | **66.7%** of runs (tie 8.3%) |
 
 With a generous budget, cold restart and warm start mostly end up equal: warm is strictly better
-in only 19% of runs and tied in 63%. Warm start, memory and segment focus pay off **when the
-re-planning deadline is tight**. That is the regime the spec's $r_{late\_decision}$ penalty
-targets, and it is where a learned operator controller has something to win.
+in 15% of runs and tied in 69%. Warm start, memory and segment focus pay off **when the
+re-planning deadline is tight**, where warm is clearly better on all three objectives. That is the
+regime the spec's $r_{late\_decision}$ penalty targets, and it is where a learned operator
+controller has something to win.
 
 ### 4.2 Multi-objective (`--mode mo`, commit = equal-weight point of the archive)
 
-| | Δf1 | Δf2 | Δf3 (Z1) | runs with better Z1 than static |
+| | Δf1 | Δf2 | Δf3 (Z1) | runs with unmet demand |
 |---|---|---|---|---|
-| restart | −1.26% | −3.81% | −0.56% | 50.0% |
-| warm | **−1.42%** | **−4.73%** | **−0.82%** | **58.3%** |
+| static | — | — | — | 70% (mean 1.83%) |
+| restart | −4.44% | −4.21% | **−0.75%** | 2 runs (max 0.35%) |
+| warm | **−4.64%** | **−5.05%** | −0.67% | **0** |
 
 **Paired hypervolume.** At each epoch, the warm strategy's residual problem is also solved cold
 with the same budget. HV is normalized by the union of both archives, with reference point
@@ -178,24 +210,22 @@ with the same budget. HV is normalized by the union of both archives, with refer
 
 | epoch | scale | HV warm | HV cold | warm better | tie |
 |---|---|---|---|---|---|
-| 1 | large | **0.942** | 0.880 | 73% | 6% |
-| 1 | medium | **0.614** | 0.522 | 27% | 60% |
-| 1 | small | 0.634 | 0.630 | 10% | 75% |
-| 2 | large | **0.617** | 0.531 | 27% | 50% |
-| 2 | medium | 0.716 | 0.697 | 4% | 90% |
-| 2 | small | 1.050 | 1.045 | 6% | 94% |
+| 1 | large | 0.902 | 0.903 | 52% | 0% |
+| 1 | medium | **0.636** | 0.588 | 29% | 56% |
+| 1 | small | 0.592 | 0.588 | 8% | 81% |
+| 2 | large | **0.959** | 0.910 | 42% | 8% |
+| 2 | medium | 0.585 | 0.585 | 4% | 85% |
+| 2 | small | 0.961 | 0.961 | 2% | 96% |
 
-Memory (the projected archive plus the elite pool) gives a clearly better Pareto front right after
-a change on large instances: warm wins in 73% of epoch-1 problems. On small residual problems both
-reach the same front.
+- **Large instances.** Warm and cold are level after the first event; warm wins slightly more
+  often, but the mean HV is the same. After the second event warm's front is clearly better (0.959
+  vs 0.910), when the memory carried over from earlier epochs has more to contribute.
+- **Small instances.** Both reach the same front.
 
-**Battery.** A separate verification sweep re-executed every instance × scenario × strategy (144
-closed-loop runs). No executed sortie exceeded the battery limit (`battery_violations = 0`), and
-the highest battery use was 99.9% of usable energy, so the constraint is active.
-
-**Unmet demand.** Surges that land on a cluster already served cannot be recovered in this model.
-They account for 0–5.5% unmet demand, and re-planning reduces it only slightly by reaching clusters
-before the surge. See §6.1.
+**Battery.** A verification sweep over every instance × scenario × strategy (144 closed-loop runs,
+final code including recourse) found **no** sortie over the battery limit; the maximum use was
+99.9% of usable energy. Re-delivery sorties use the same constraint, and at execution the drones
+fly extra, lighter waves if a surge hits a pairing that was already locked.
 
 ## 5. Review of the guide: what changed and why
 
