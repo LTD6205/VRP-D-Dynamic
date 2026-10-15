@@ -150,6 +150,18 @@ empty, each leg lasting $t'_{ij}=\text{dist}_{ij}/v_d$:
 
 $$e_{ij}=t'_{ij}\Big[p(v_d,\ell_j)+p(v_d,0)\Big]$$
 
+**Where flight distance enters.** $t'_{ij}$ is the one-way flight time, i.e. the straight-line
+(Euclidean) distance $\delta_{ij}$ from satellite $i$ to centroid $j$ divided by the drone speed
+(`dist.time_n_m` in `src/common.py`). Written with distance explicitly:
+
+$$t'_{ij}=\frac{\delta_{ij}}{v_d}\quad\Longrightarrow\quad
+e_{ij}=\delta_{ij}\cdot\frac{p(v_d,\ell_j)+p(v_d,0)}{v_d}$$
+
+So energy grows **linearly with distance**: the fraction is the battery used per kilometre of
+satellite→cluster distance (flown out loaded and back empty). At 60 km/h this is 5.1%/km empty
+and 6.4%/km at full payload, giving the 16.6 km and 13.4 km ranges below. Take-off, landing and
+hovering are not modelled, so there is no fixed per-sortie overhead.
+
 **Battery constraint (C4):** a sortie must leave the safety reserve in the battery,
 
 $$e_{i\sigma(i)}\ \le\ E\,(1-\rho)\qquad\forall i .$$
