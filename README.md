@@ -108,7 +108,7 @@ paired warm-vs-cold HV is a ready-made reward signal for spec eq. 12.
 
 ## 4. Benchmark results
 
-Setup: 12 instances (guide §5.1) × 4 scenarios × 3 seeds × {static, restart, warm}.
+Setup (results regenerated with the speed+load battery model): 12 instances (guide §5.1) × 4 scenarios × 3 seeds × {static, restart, warm}.
 
 **CPU budget per re-plan:**
 - 1.5 s for n ≤ 15, 3 s for n = 20, 5 s for n = 50;
@@ -120,18 +120,20 @@ Raw data: `results/dynamic_*.csv`. Regenerate the tables with `scripts/summarize
 
 ### 4.1 Single objective Z1, the paper's objective (`--mode so --weights 0,0,1`)
 
+Mean change of realized Z1 vs. static, restart / warm (negative is better):
+
 | scale | 10% damage | 30% | 30% partial-obs | 50% |
 |---|---|---|---|---|
-| small (n ≤ 9), Z1 restart / warm | −0.06 / −0.06 | 0 / 0 | **+0.82 / +0.82** | −3.34 / −3.34 |
-| medium (n 11–13) | −0.83 / −0.67 | −0.07 / −0.05 | −2.64 / −2.74 | −4.99 / −5.12 |
-| large (n 20–50) | −2.04 / −1.98 | −0.66 / −0.79 | −1.90 / −1.81 | −4.47 / −3.97 |
+| small (n ≤ 9) | −2.63 / −2.63 | −2.99 / −2.99 | **+1.66 / +1.64** | −2.77 / −2.77 |
+| medium (n 11–13) | −2.91 / −1.89 | −1.47 / −1.25 | −1.34 / −2.13 | −0.94 / −1.58 |
+| large (n 20–50) | −1.30 / −1.18 | −1.88 / −1.66 | −0.49 / −1.16 | −4.09 / −4.01 |
 
-Overall, re-planning lowers realized Z1 by about 1.7% on average and by up to 5% at 50% damage.
-The gains grow with damage and with satellites per truck. Optimizing Z1 alone *worsens* the equity
-spread f2 (+10% on average), which is the trade-off the MO formulation is for.
+Overall, re-planning lowers realized Z1 by about 1.8% on average and by up to 4% at 50% damage.
+Optimizing Z1 alone *worsens* the equity spread f2 (+3% for restart, +6% for warm, on average),
+which is the trade-off the MO formulation is for.
 
-Under partial observability on small instances, re-planning on the *belief* is slightly worse than
-not re-planning (+0.8%). The Markov prediction expects degradation everywhere, which pushes the
+Under partial observability on small instances, re-planning on the *belief* is worse than not
+re-planning (+1.6%). The Markov prediction expects degradation everywhere, which pushes the
 planner to avoid roads that are in fact open. This is a concrete argument for the spec's
 observation / exploration design (spec §4.8).
 
@@ -139,22 +141,22 @@ observation / exploration design (spec §4.8).
 
 | | restart | warm |
 |---|---|---|
-| mean ΔZ1 vs static | −1.36% | **−2.35%** |
-| runs better than static | 66.7% | **77.1%** |
-| warm beats restart (paired) | — | 66.7% of runs (tie 2%) |
+| mean ΔZ1 vs static | −2.49% | **−3.00%** |
+| at 50% damage | −5.43% | **−6.22%** |
+| runs better than static | 66.7% | **79.2%** |
+| warm beats restart (paired) | — | 60.4% of runs (tie 12.5%) |
 
-With a generous budget, cold restart and warm start end up equal: the residual problems are small
-enough to re-solve from scratch, and warm beats restart in only 42% of runs. Warm start, memory
-and segment focus pay off **when the re-planning deadline is tight**. That is the regime the
-spec's $r_{late\_decision}$ penalty targets, and it is where a learned operator controller has
-something to win.
+With a generous budget, cold restart and warm start mostly end up equal: warm is strictly better
+in only 19% of runs and tied in 63%. Warm start, memory and segment focus pay off **when the
+re-planning deadline is tight**. That is the regime the spec's $r_{late\_decision}$ penalty
+targets, and it is where a learned operator controller has something to win.
 
 ### 4.2 Multi-objective (`--mode mo`, commit = equal-weight point of the archive)
 
-| | Δf1 | Δf2 | Δf3 (Z1) |
-|---|---|---|---|
-| restart | −1.21% | −5.33% | −0.51% |
-| warm | **−1.40%** | **−7.27%** | **−0.68%** |
+| | Δf1 | Δf2 | Δf3 (Z1) | runs with better Z1 than static |
+|---|---|---|---|---|
+| restart | −1.26% | −3.81% | −0.56% | 50.0% |
+| warm | **−1.42%** | **−4.73%** | **−0.82%** | **58.3%** |
 
 **Paired hypervolume.** At each epoch, the warm strategy's residual problem is also solved cold
 with the same budget. HV is normalized by the union of both archives, with reference point
@@ -162,17 +164,23 @@ with the same budget. HV is normalized by the union of both archives, with refer
 
 | epoch | scale | HV warm | HV cold | warm better | tie |
 |---|---|---|---|---|---|
-| 1 | large | **0.851** | 0.805 | 54% | 2% |
-| 1 | medium | **0.608** | 0.574 | 29% | 52% |
-| 1 | small | 0.486 | 0.489 | 2% | 92% |
-| 2 | large | **0.642** | 0.620 | 30% | 57% |
-| 2 | medium / small | equal | equal | 0% | 100% |
+| 1 | large | **0.942** | 0.880 | 73% | 6% |
+| 1 | medium | **0.614** | 0.522 | 27% | 60% |
+| 1 | small | 0.634 | 0.630 | 10% | 75% |
+| 2 | large | **0.617** | 0.531 | 27% | 50% |
+| 2 | medium | 0.716 | 0.697 | 4% | 90% |
+| 2 | small | 1.050 | 1.045 | 6% | 94% |
 
-Memory (the projected archive plus the elite pool) gives a better Pareto front right after a
-change on large instances. On small residual problems both approaches reach the same front.
+Memory (the projected archive plus the elite pool) gives a clearly better Pareto front right after
+a change on large instances: warm wins in 73% of epoch-1 problems. On small residual problems both
+reach the same front.
+
+**Battery.** A separate verification sweep re-executed every instance × scenario × strategy (144
+closed-loop runs). No executed sortie exceeded the battery limit (`battery_violations = 0`), and
+the highest battery use was 99.9% of usable energy, so the constraint is active.
 
 **Unmet demand.** Surges that land on a cluster already served cannot be recovered in this model.
-They account for 0–4.7% unmet demand, and re-planning reduces it only slightly by reaching clusters
+They account for 0–5.5% unmet demand, and re-planning reduces it only slightly by reaching clusters
 before the surge. See §6.1.
 
 ## 5. Review of the guide: what changed and why
