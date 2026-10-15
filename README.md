@@ -5,6 +5,8 @@
 > (original repo: [andngdtudk/2E_CTVRP](https://github.com/andngdtudk/2E_CTVRP)).
 > The original README — installation, static heuristics, MILP and how to reproduce the paper — is
 > kept in [`README_STATIC.md`](README_STATIC.md).
+>
+> **Formulation summary** (variables, formulas, constraints, dataset generation, changes vs. the first version): [`docs/FORMULATION.md`](docs/FORMULATION.md).
 
 This extension turns the static 2E-CTVRP of Nguyen, Piplani & Gunawan (see [`README_STATIC.md`](README_STATIC.md)) into
 the dynamic, event-driven truck–drone relief problem described in `bai_toan_iii_truck_drone.pdf`.
