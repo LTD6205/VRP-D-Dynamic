@@ -19,8 +19,10 @@ and back. Each satellite serves exactly one cluster: this is the satellite→clu
 After dispatch, roads degrade or close, demand surges and priorities change. These changes are
 revealed at **event epochs** $t_1, t_2, \dots$. At each epoch, everything already executed is
 frozen and only the **residual problem** is re-optimized: the satellites not yet reached, starting
-from each truck's current position. Three objectives are traded off: priority-weighted delivery
-time, equity, and total fleet time.
+from each truck's current position. If a surge hits a cluster that has already been served, a
+**re-delivery job** is created and a truck with spare goods flies the extra amount from a
+satellite in drone range (§5.4b), so all demand is met whenever the fleet still has the goods.
+Three objectives are traded off: priority-weighted delivery time, equity, and total fleet time.
 
 ---
 
@@ -38,6 +40,7 @@ time, equity, and total fleet time.
 | $F(t)=V_s\setminus L(t)$ | **free** satellites | `Snapshot.free_sats` |
 | $M_F(t)$ | **free** centroids (not assigned to a locked satellite) | `Snapshot.free_centroids` |
 | $\mathcal K_A(t)$ | **active** trucks (not yet heading home) | `ReplanProblem.active` |
+| $\mathcal J(t)$ | **re-delivery jobs** still to be served (residual demand of already-served clusters) | `ReplanProblem.free_jobs`, `Plan.jobs` |
 
 ## 3. Parameters
 
@@ -50,8 +53,8 @@ time, equity, and total fleet time.
 | $t'_{ij}$ | one-way drone time satellite $i$ → centroid $j$ (Euclidean / $v_d$) | `dist.time_n_m` |
 | $\phi_s$ | travel-time multiplier of state $s$ | $(1.0,\ 2.5,\ 5.0)$ (`PHI`) |
 | $\mathcal P(s'\mid s)$ | per-epoch Markov transition of road states (belief prediction) | `DEFAULT_TRANSITION` |
-| $\rho$ | probability that a changed road is reported (`reveal_prob`) | 1.0 (full) or 0.6 (partial) |
-| $s_{ij}(t)$ | **true** state of arc $(i,j)$ (hidden from the planner if $\rho<1$) | `RoadNetwork.true_state` |
+| $\rho_{obs}$ | probability that a changed road is reported (`reveal_prob`) | 1.0 (full) or 0.6 (partial) |
+| $s_{ij}(t)$ | **true** state of arc $(i,j)$ (hidden from the planner if $\rho_{obs}<1$) | `RoadNetwork.true_state` |
 | $b_{ij}^t(s)$ | planner's **belief** over the state of arc $(i,j)$ | `RoadNetwork.belief` |
 | $d_j(t)$ | demand of cluster $j$ (changes with surges) | `DemandProcess` |
 | $w_j(t)\in[0,1]$ | priority of cluster $j$ | `initial_priorities` + updates |
@@ -68,8 +71,9 @@ MILP variables.
 
 | Variable | Meaning | In code |
 |---|---|---|
-| $r_k(t)=(\pi_k(1),\dots,\pi_k(m_k))$ | ordered list of free satellites truck $k\in\mathcal K_A$ will visit next | `Sol.routes[k]` |
+| $r_k(t)=(\pi_k(1),\dots,\pi_k(m_k))$ | ordered list of stops truck $k\in\mathcal K_A$ will make next: free satellites **and** re-delivery jobs | `Sol.routes[k]` |
 | $\sigma_t: F(t)\to M_F(t)$ | bijection: which centroid each free satellite's drones serve | `Sol.sigma` |
+| $h_j\in H_j$ | **host satellite** of re-delivery job $j$: where the truck stops and launches the extra drone wave(s) | `Sol.hosts[j]` |
 
 The following quantities are **derived** from the decisions, not chosen freely:
 
@@ -108,11 +112,11 @@ reachable.
 
 **Belief update at an event:**
 
-- If $\rho=1$: $b_{ij}^t=\mathbb 1[s=s_{ij}(t)]$. The planner knows every road state.
-- If $\rho<1$:
+- If $\rho_{obs}=1$: $b_{ij}^t=\mathbb 1[s=s_{ij}(t)]$. The planner knows every road state.
+- If $\rho_{obs}<1$:
   - every arc's belief is first predicted forward with $b\leftarrow b\,\mathcal P$ (roads may have
     degraded unseen);
-  - each road that actually changed is then reported with probability $\rho$, and its belief is
+  - each road that actually changed is then reported with probability $\rho_{obs}$, and its belief is
     set to the true state;
   - a road a truck has driven also reveals its true state.
 
@@ -199,14 +203,45 @@ $$Q_k(t)=Q-\sum_{i\in L(t)\cap r_k}q_i ,$$
 where $q_i$ is the delivered amount if $i$ was already reached, or the current demand if $i$ is
 only a committed target.
 
+### 5.4b Recourse: re-delivery jobs (`create_residual_jobs`, `dynamic_sim.py`)
+
+Right after the demand update at event $t_e$, every cluster $c$ whose satellite has **already been
+reached** gets a re-delivery job if it is still short:
+
+$$r_c(t_e)=d_c(t_e)-q^{main}_c-\sum_{j\in\mathcal J^{done}_c}q_j-\sum_{j\in\mathcal J^{plan}_c}r_j\ >\ 0
+\ \Rightarrow\ \text{new job }j=(c,\ r_c)$$
+
+- $q^{main}_c$ is what the cluster's own satellite delivered;
+- $\mathcal J^{done}_c$ are its jobs already executed (counted at what they actually delivered);
+- $\mathcal J^{plan}_c$ are its jobs still planned.
+
+This covers three cases: a surge **after** delivery, a surge **during** delivery (truck still
+parked, drones flying), and a **shortfall** because the truck ran out of goods. Clusters not yet
+reached need no job, because their satellite delivers the demand valid at arrival.
+
+**Serving a job.** A job is a route stop like a satellite. The truck drives to the job's host
+$h_j$, waits for $n^{wave}_j=\lceil r_j/UP\rceil$ waves of $2t'_{h_jc}$, and the delivery time is
+$e_j=a_j+t'_{h_jc}$. The host can be any satellite whose drones reach the cluster with that load:
+
+$$H_j=\{h\in V_s:\ e_{hc}(v_d,\ell_j)\le E(1-\rho)\},\qquad \ell_j=\frac{r_j}{U\,n^{wave}_j}$$
+
+If a job is placed right next to a stop at the same satellite (for example first in the route of
+a truck still parked at the cluster's own satellite), it costs **no extra driving**: it is simply
+an extra drone wave there. The planner chooses the host together with the insertion position,
+and the `job_host` operator moves a job to another host.
+
+The `static` strategy never re-plans, so it never creates jobs. `--no-recourse` switches recourse
+off for re-planning strategies too (for ablation).
+
 ### 5.5 Objectives (minimize; over the **whole horizon**, locked parts are constants)
 
-$$f_1=\frac{1}{D(t)}\sum_{i\in V_s} w_{\sigma(i)}(t)\;q_{i}\;e_i
+$$f_1=\frac{1}{D(t)}\Big[\sum_{i\in V_s} w_{\sigma(i)}(t)\;q_{i}\;e_i+\sum_{j\in\mathcal J} w_{c_j}(t)\;q_j\;e_j\Big]
 \qquad\text{(priority-weighted delivery time — efficiency)}$$
 
 This is the average time supplies reach victims, weighted by how much is delivered and how urgent
-the cluster is. $D(t)=\sum_j d_j(t)$, and $q_i$ is the amount delivered from $i$: the current
-demand for planned satellites, the actual delivered amount for executed ones.
+the cluster is, **including re-deliveries**. $D(t)=\sum_j d_j(t)$, and $q$ is the amount
+delivered by a stop: the planned amount for future stops, the actual delivered amount for executed
+ones.
 
 $$f_2=Z_3=\max_{i\in V_s}a_i-\min_{i\in V_s}a_i\qquad\text{(arrival spread — equity)}$$
 
@@ -216,6 +251,11 @@ $$f_3=Z_1=\sum_{i\in V_s}a_i+\sum_{k\in\mathcal K}\text{ret}_k\qquad\text{(cumul
 
 This is the static paper's objective, the sum of all arrival and return times. In code,
 `--mode so --weights 0,0,1` optimizes $f_3$ alone and reproduces the paper.
+
+$f_2$ and $f_3$ sum over the satellites' **main** visits only. A re-delivery stop is not added as
+an extra term; its cost appears as later arrivals for the stops after it and a later return. This
+keeps $f_3$ comparable with the paper and between strategies: otherwise each extra stop serving
+people would add its whole arrival time and make serving more demand look worse.
 
 **Scalarization used inside the search:**
 $\;g(S)=\sum_m \lambda_m f_m(S)/\hat f_m$, where $\hat f$ are the objectives of the epoch's
@@ -230,7 +270,7 @@ $\lambda^{c}=(1/3,1/3,1/3)$ by default.
 
 | # | Constraint | Meaning | How enforced |
 |---|---|---|---|
-| C1 | $\bigcup_k r_k=F(t)$, each free satellite in exactly one route | every remaining satellite is visited once | representation (operators only move or swap satellites) |
+| C1 | $\bigcup_k r_k=F(t)\cup\mathcal J(t)$, each free satellite and each job in exactly one route | every remaining satellite is visited once and every residual demand is scheduled | representation (operators only move or swap stops); checked by `check_plan` |
 | C2 | $\sigma_t$ is a bijection $F(t)\leftrightarrow M_F(t)$ | each cluster served by exactly one satellite | representation (operators only swap centroids) |
 | C3 | $\sum_{i\in r_k} d_{\sigma(i)}(t)\le Q_k(t)\ \ \forall k\in\mathcal K_A$ | truck capacity, minus what was already handed out | penalty $\max(0,L_k-Q_k)$; feasible-first comparison |
 | C4 | $e_{i\sigma(i)}(v_d,\ell_{\sigma(i)})\le E(1-\rho)\ \ \forall i$ (§5.2b) | each sortie's energy, which depends on speed and load, leaves the safety reserve | infeasible pairs are excluded from σ moves, construction and repair; pairs are recomputed each epoch from current demand |
@@ -238,9 +278,16 @@ $\lambda^{c}=(1/3,1/3,1/3)$ by default.
 | C6 | $\lvert r_k\rvert\ge 1$ if truck $k$ starts at the depot ($t=0$ only) | no idle truck, as in the paper's MILP | penalty $10^5$ |
 | C7 | locked part of the plan unchanged | cannot undo the past | the residual problem contains only free satellites; checked by `check_plan` after every re-plan |
 | C8 | each route starts at $v_{\pi_k(0)}(t)$ at $\alpha_k(t)$ and ends at $v_{n+1}$ | trucks continue from where they are | built into the timeline recursion |
+| C9 | $h_j\in H_j$ for every job $j$ (§5.4b) | the extra sortie is battery-feasible from its host | hosts chosen only from $H_j$ in insertion and in the `job_host` move |
+| C10 | all demand covered: $q^{main}_c+\sum_{j\in\mathcal J_c}q_j=d_c(t)\ \forall c$ | no unmet demand | **soft**: C1 schedules every unit, and C3 counts it in truck load. If the remaining fleet capacity is too small, no plan is feasible; the plan with the smallest overload (C3 penalty) is committed, the simulator delivers what fits, and the rest is reported as unmet and charged in $f_1$ (§5.9) |
 
 Candidate solutions are compared **lexicographically**: first by total violation, then by $g(S)$.
 Only feasible solutions (violation 0) enter the Pareto archive.
+
+C10 is deliberately not a hard constraint. A surge larger than what the trucks still carry would
+make a hard version infeasible, and the optimizer would return no plan at the moment one is most
+needed. With the soft version, unmet demand is zero whenever delivering everything is physically
+possible, and is minimized and reported when it is not.
 
 ### 5.7 Disruption score per route (segment-aware search; spec eq. 9)
 
@@ -271,13 +318,20 @@ Built by `drl_state()`.
 ### 5.9 Realized evaluation (after the last event; `realized_metrics`)
 
 The final plan is **executed on the true network** (§5.1). The same $f_1,f_2,f_3$ are reported
-using actual times, plus the following:
+using actual times. In the realized $f_1$, demand that was never delivered is charged as if
+delivered at $C_{ret}$, the time the last truck is back (the earliest a new trip could start):
+
+$$f_1^{real}=\frac{1}{D}\Big[\sum_{\text{stops}}w_c\,q\,e+\sum_c w_c\,u_c\,C_{ret}\Big],\qquad u_c=\max\big(0,\ d_c^{final}-\text{delivered}_c\big)$$
+
+Without that term, leaving demand undelivered would lower $f_1$ and look better than delivering
+it late. Also reported:
 
 | Metric | Formula | Meaning |
 |---|---|---|
 | $C_{del}$ | $\max_i e_i$ | time the last cluster receives supplies |
 | $C_{ret}$ | $\max_k \text{ret}_k$ | time the last truck is back at the depot |
-| unmet | $\sum_j\max\big(0,\ d_j^{final}-\text{delivered}_j\big)/D$ | share of demand never delivered, e.g. a surge hitting an already-served cluster |
+| unmet | $\sum_c u_c/D$ | share of demand never delivered. With recourse this is non-zero only if the fleet ran out of goods, or for the `static` strategy, which never re-plans |
+| re-deliveries | $\lvert\mathcal J\rvert$ executed | number of re-delivery stops made |
 
 ---
 
@@ -373,6 +427,8 @@ The first version is the guide's §3 formulation and §5.3 generator, together w
 | Partial observability | mentioned (POMDP) only | implemented: `reveal_prob`, Markov prediction $b\leftarrow b\mathcal P$, reveal on traversal | spec §4.8 |
 | Commitment rule | "last reached or currently targeted satellite" | same, made precise: the en-route target and its σ are locked; trucks heading home are retired | — |
 | Objectives | $f_1$ with $d$, $f_2=Z_3$, $f_3=Z_1$ | same three, but over the **whole horizon** (locked parts constant); $f_1$ uses delivered amounts for executed stops | makes values comparable across epochs and with the static result |
+| Demand coverage after surges | not addressed (guide: random surges; proposal: $h_i(t^+)=[\,\cdot\,]^+$ unmet update) | **re-delivery recourse**: residual demand becomes a job served from any battery-feasible host satellite, including an extra wave while still parked; "all demand met" as a soft constraint with a capacity-overload penalty | removes unmet demand whenever the fleet still has goods, without making the problem infeasible when it does not |
+| Unmet demand in $f_1$ | — | undelivered demand charged at $C_{ret}$ | otherwise leaving people unserved would improve $f_1$ |
 | Elite pool across epochs | "old σ remain valid permutations" | old σ are **projected and repaired** (`project_sigma`) | after commitment some centroids are locked to other satellites, so an old σ is not a bijection on the free sets |
 | 2-opt asymmetry fix | operators must check direction | no change needed | every move is scored by full re-evaluation, never by delta formulas |
 | Empty truck at t=0 | not discussed | penalty: every depot-start truck visits ≥1 satellite | matches the static MILP, so t=0 reproduces the paper |
@@ -381,6 +437,8 @@ The first version is the guide's §3 formulation and §5.3 generator, together w
 | Vehicle crashes, variable drone speed, multi-drop sorties | in the proposal slides | **not modelled** (vehicles always operational, fixed $v_d$ per instance, out-and-back sorties) | simplifications recommended by guide §2 |
 | Dynamic MILP | $x\le\xi$, recomputed $H(t)$ | **not implemented** (no Gurobi licence here) | listed as future work |
 
-**Known limitation.** Demand that surges at a cluster *already served* becomes unmet, because each
-cluster is served once by one satellite. In the benchmark this was 0–4.7% of demand. The next model
-extension should allow split or repeated delivery (guide §1.3, option 2).
+**Remaining limitations.**
+- A truck that is already driving back to the depot is retired and is not used for re-deliveries,
+  even if it still carries goods.
+- If a surge exceeds the goods still on the active trucks, the shortfall stays unmet: there is no
+  second trip from the depot.

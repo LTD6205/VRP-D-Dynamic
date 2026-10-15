@@ -23,18 +23,21 @@ import numpy as np
 from common import cluster_victims, compute_distances, parse_instance
 from drone_energy import DroneBattery
 from dynamic_env import DemandProcess, RoadNetwork, Scenario, load_scenarios
-from dynamic_sim import Plan, Simulator, realized_metrics
+from dynamic_sim import Job, Plan, Simulator, create_residual_jobs, realized_metrics
 from dynamic_solver import (DynamicReoptimizer, ReoptConfig, ReplanProblem, Sol, drl_state,
                             make_selector, segment_disruption)
 from mo_utils import hypervolume, nondominated
 
 
-def merge(snap, chosen: Sol) -> Plan:
+def merge(snap, chosen: Sol, jobs: Optional[Dict[int, Job]] = None) -> Plan:
     routes = {k: list(ts.prefix) + (list(chosen.routes.get(k, [])) if ts.active else [])
               for k, ts in snap.trucks.items()}
     sigma = {s: r.centroid for s, r in snap.locked.items()}
     sigma.update(chosen.sigma)
-    return Plan(routes, sigma)
+    new_jobs = {}
+    for j, job in (jobs or {}).items():                 # jobs keep cluster/amount; free ones get the chosen host
+        new_jobs[j] = Job(job.cluster, job.amount, chosen.hosts.get(j, job.host), job.created)
+    return Plan(routes, sigma, new_jobs)
 
 
 def paired_hv(F_a: np.ndarray, F_b: np.ndarray):
@@ -50,8 +53,10 @@ def check_plan(plan: Plan, n: int, snap, sim: Simulator) -> None:
     """Invariants after a re-plan: every satellite visited exactly once, sigma a
     bijection, and the frozen history is untouched (locked satellites keep their
     truck, order, centroid and -- re-simulated -- their arrival time)."""
-    visited = sorted(s for r in plan.routes.values() for s in r)
+    visited = sorted(s for r in plan.routes.values() for s in r if s <= n)
     assert visited == list(range(1, n + 1)), "satellite coverage broken"
+    job_items = sorted(s for r in plan.routes.values() for s in r if s > n)
+    assert job_items == sorted(plan.jobs), "every re-delivery job must be routed exactly once"
     assert sorted(plan.sigma) == list(range(1, n + 1)) and sorted(plan.sigma.values()) == list(range(1, n + 1)), \
         "sigma is not a bijection"
     tl = sim.simulate(plan)
@@ -60,6 +65,8 @@ def check_plan(plan: Plan, n: int, snap, sim: Simulator) -> None:
         assert new.truck == rec.truck and new.position == rec.position and new.centroid == rec.centroid, \
             f"locked satellite {s} was moved"
         assert abs(new.arrival - rec.arrival) < 1e-9, f"history of satellite {s} changed"
+    for j, rec in getattr(snap, "locked_jobs", {}).items():
+        assert abs(tl.jobs[j].arrival - rec.arrival) < 1e-9, f"history of job {j} changed"
 
 
 @dataclass
@@ -81,7 +88,10 @@ def load_world(instance_path: str, events_path: str, scenario: str) -> World:
 
 def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg: ReoptConfig,
                     seed: int = 0, selector: str = "adaptive", paired_hv_check: bool = False,
-                    verbose: bool = False) -> Dict[str, dict]:
+                    verbose: bool = False, recourse: bool = True) -> Dict[str, dict]:
+    """recourse=True: re-planning strategies create re-delivery jobs for residual demand
+    (surges after/during delivery, shortfalls); the 'static' strategy never re-plans and so
+    never gets recourse."""
     inst, cl, dist, sc = world.inst, world.clustered, world.dist, world.scenario
     n, Q, UP = inst.n, float(inst.q), float(inst.no_u * inst.p)
     trucks = list(range(inst.no_k))
@@ -123,6 +133,7 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
         prev_T, prev_d = net.expected_time(), dem.current_demand.copy()
         recs = [dict(epoch0_rec)]
         replan_cpu = 0.0
+        next_job = n + 2                               # job ids start right after the end depot
         for ev in epochs[1:]:
             tl = sim.simulate(plan)
             snap = sim.commit(plan, tl, ev.time)
@@ -130,12 +141,21 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
             net.apply_edge_updates(ev.time, ev.edge_updates)
             dem.apply(ev.time, ev.demand_multipliers, ev.priority_updates)
             T = net.expected_time()
+            new_jobs = {}
+            if recourse and strat != "static":
+                new_jobs, next_job = create_residual_jobs(plan, tl, snap, dem, next_job)
+                plan.jobs.update(new_jobs)
             prob = ReplanProblem(snap, T, dist.time_n_m, dem.current_demand, dem.current_priority,
-                                 Q, UP, battery, n)
-            rec = dict(epoch=ev.epoch_id, time=ev.time, n_free=len(prob.free), n_active=len(prob.active))
-            if strat == "static" or not prob.free or not prob.active:
-                v, o = prob.evaluate({k: [s for s in plan.routes[k] if s in set(prob.free)] for k in prob.active},
-                                     {s: plan.sigma[s] for s in prob.free})
+                                 Q, UP, battery, n, jobs=plan.jobs)
+            rec = dict(epoch=ev.epoch_id, time=ev.time, n_free=len(prob.free), n_active=len(prob.active),
+                       new_jobs=len(new_jobs), residual_demand=float(sum(j.amount for j in new_jobs.values())))
+            if strat == "static" or not (prob.free or prob.free_jobs) or not prob.active:
+                keep = set(prob.free) | set(prob.free_jobs)
+                v, o = prob.evaluate({k: [s for s in plan.routes[k] if s in keep] for k in prob.active},
+                                     {s: plan.sigma[s] for s in prob.free},
+                                     {j: plan.jobs[j].host for j in prob.free_jobs})
+                for j in new_jobs:                      # no active truck can take them: stays unmet
+                    plan.jobs.pop(j, None)
                 rec.update(pred_objs=o, viol=v, archive_size=0, iterations=0, runtime_s=0.0)
                 recs.append(rec)
                 prev_T, prev_d = T, dem.current_demand.copy()
@@ -167,7 +187,7 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
                     hv_w, hv_c = paired_hv(res.archive.objectives(), res_b.archive.objectives())
                     rec.update(hv_warm=hv_w, hv_cold=hv_c)
 
-            new_plan = merge(snap, res.chosen)
+            new_plan = merge(snap, res.chosen, plan.jobs)
             check_plan(new_plan, n, snap, sim)
             plan = new_plan
             archive_items = list(res.archive.items)
@@ -183,7 +203,8 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
         m["replan_cpu_s"] = replan_cpu
         out[strat] = dict(metrics=m, epochs=recs,
                           plan=dict(routes={str(k): v for k, v in plan.routes.items()},
-                                    sigma={str(k): v for k, v in plan.sigma.items()}))
+                                    sigma={str(k): v for k, v in plan.sigma.items()},
+                                    jobs={str(j): vars(x) for j, x in plan.jobs.items()}))
         if verbose:
             print(f"  [{strat}] realized f1={m['f1']:.4f} f2={m['f2']:.4f} f3={m['f3']:.4f} "
                   f"unmet={m['unmet_ratio']:.3%}")

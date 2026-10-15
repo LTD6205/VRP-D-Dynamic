@@ -21,7 +21,7 @@ static solvers, the MILP and the shipped instances behave exactly as before.
 | File | Role |
 |---|---|
 | `src/dynamic_env.py` | 3-state road model (Open / Degraded ×2.5 / Detour ×5.0), true state vs. planner **belief** with Markov prediction and partial observation (`reveal_prob`), demand and priority process, `.events.json` loader |
-| `src/dynamic_sim.py` | Executes a plan on the *true* network (arc time fixed at departure), **freezes history** at an event (`commit`), and computes realized KPIs |
+| `src/dynamic_sim.py` | Executes a plan on the *true* network (arc time fixed at departure), **freezes history** at an event (`commit`), creates **re-delivery jobs** for residual demand (`create_residual_jobs`), and computes realized KPIs |
 | `src/dynamic_solver.py` | Residual problem at epoch *t* plus the multi-objective re-optimizer: N1–N7 from the repo plus destroy-repair, segment-focused moves, best-of-K local search, path relinking with an elite σ-pool that survives epochs, Pareto archive, and the operator-selector hook (the slot for the DRL agent) |
 | `src/dynamic_runner.py` | Closed loop: solve at t=0 → execute → event → freeze → re-plan → … for the strategies `static`, `restart` and `warm`, with invariant checks after every re-plan |
 | `src/mo_utils.py` | Pareto archive (crowding truncation), exact 3-D hypervolume, Das-Dennis weights |
@@ -72,9 +72,23 @@ $e_{ij}=t'_{ij}[p(v_d,\ell_j)+p(v_d,0)]\le E(1-\rho)$.
 - Parameters are in each scenario's `drone_energy` block; details are in
   [`docs/FORMULATION.md`](docs/FORMULATION.md) §5.2b.
 
+**Recourse: all demand is met when possible** (`create_residual_jobs`, `src/dynamic_sim.py`).
+- When a surge hits a cluster whose satellite was already reached (after or during delivery), or
+  a truck ran short of goods, the missing amount becomes a **re-delivery job**.
+- A job is a route stop: a truck with goods left drives to a **host** satellite within battery
+  range of the cluster and flies the extra wave(s). If the truck is still parked at that
+  satellite, the job is just an extra wave there, with no extra driving.
+- "All demand met" is a **soft** constraint: every unit is scheduled and counted in truck
+  capacity. If the trucks don't carry enough, the least-overloaded plan is committed and the
+  shortfall is reported as unmet.
+- The `static` strategy never re-plans, so it gets no recourse. `--no-recourse` switches it off for
+  the other strategies too. Details are in [`docs/FORMULATION.md`](docs/FORMULATION.md) §5.4b.
+
 **Objectives** are computed over the whole horizon, with locked parts entering as constants so
 values are comparable across epochs (guide §3.4):
-- $f_1=\frac1D\sum_i w_{\sigma(i)}d_{\sigma(i)}e_i$, the priority-weighted delivery time;
+- $f_1=\frac1D\big[\sum_{\text{stops}} w_c\,q\,e\big]$, the priority-weighted delivery time
+  including re-deliveries. In realized results, undelivered demand is charged at $C_{ret}$, so
+  leaving people unserved never looks better than serving them late;
 - $f_2=\max_i a_i-\min_i a_i$, i.e. $Z_3$ (equity);
 - $f_3=\sum_i a_i+\sum_k \text{ret}_k$, i.e. $Z_1$, the paper's objective.
 
@@ -198,8 +212,7 @@ before the surge. See §6.1.
    An extra `damage_30pct_partial` scenario (`reveal_prob 0.6`) covers partial observability.
 3. **Demand surges** now hit clusters *not yet served* in the baseline plan, near the flood (the
    guide also intends "unserved clusters"). A surge that still lands on an already-served cluster
-   is reported as **unmet demand**. The model has no recourse for it, because each cluster is
-   served once by one satellite. See §6.
+   is handled by **re-delivery recourse** (§2).
 4. **Elite pool across epochs (guide §4.3)** claims old σ's "remain valid permutations". That does
    not hold: after commitment some centroids are locked to other satellites, so an old σ restricted
    to the free satellites is generally not a bijection onto the free centroids. `project_sigma`
@@ -223,10 +236,9 @@ before the surge. See §6.1.
 
 ## 6. Suggested next steps (toward SR-DRL-DMOEA)
 
-1. **Recourse for surges.** Allow split delivery across epochs (spec §1): residual demand at a
-   served cluster becomes a new "virtual centroid" that a free satellite can cover (guide §1.3
-   option 2, 1-to-many). This removes the unmet-demand artefact and gives the DRL agent a
-   meaningful "drone-reassign" action.
+1. **Wider recourse.** Re-delivery is implemented (§2). Still missing: re-using trucks that are
+   already driving home with goods left, and a second trip from the depot when the remaining fleet
+   capacity is not enough.
 2. **Deprivation objective.** Replace $f_1$ by the spec's $\sum_i w_i h_i[T_i-r_i]^+$ with
    $r_i$ = the event time for surge demand. The code already tracks the event times.
 3. **DRL controller.** Replace `AdaptiveSelector` by a Double/Dueling DQN over `drl_state()`. Use

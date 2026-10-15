@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from dynamic_env import load_scenarios  # noqa: E402
 
 FIELDS = ["instance", "n", "K", "scenario", "seed", "mode", "strategy", "f1", "f2", "f3", "C_del", "C_ret",
-          "unmet_ratio", "replan_cpu_s", "free_at_e1", "free_at_e2", "hv_warm_e1", "hv_cold_e1",
+          "unmet_ratio", "n_redeliveries", "replan_cpu_s", "free_at_e1", "free_at_e2", "hv_warm_e1", "hv_cold_e1",
           "hv_warm_e2", "hv_cold_e2"]
 
 
@@ -38,7 +38,7 @@ def find_instance(name):
 
 
 def job(args):
-    name, scenario, seed, mode, weights, t, selector, paired = args
+    name, scenario, seed, mode, weights, t, selector, paired, recourse = args
     os.chdir(ROOT)
     from dynamic_runner import load_world, run_closed_loop
     from dynamic_solver import ReoptConfig
@@ -48,7 +48,7 @@ def job(args):
                                                                        commit_weights=weights)
     out = run_closed_loop(world, ["static", "restart", "warm"], replace(base, time_limit=2 * t),
                           replace(base, time_limit=t), seed=seed, selector=selector,
-                          paired_hv_check=paired)
+                          paired_hv_check=paired, recourse=recourse)
     rows = []
     warm_ep = {e["epoch"]: e for e in out["warm"]["epochs"]}
     for strat, r in out.items():
@@ -57,7 +57,7 @@ def job(args):
         rows.append(dict(
             instance=name, n=world.inst.n, K=world.inst.no_k, scenario=scenario, seed=seed, mode=mode,
             strategy=strat, f1=m["f1"], f2=m["f2"], f3=m["f3"], C_del=m["C_del"], C_ret=m["C_ret"],
-            unmet_ratio=m["unmet_ratio"], replan_cpu_s=m["replan_cpu_s"],
+            unmet_ratio=m["unmet_ratio"], n_redeliveries=m["n_redeliveries"], replan_cpu_s=m["replan_cpu_s"],
             free_at_e1=ep.get(1, {}).get("n_free"), free_at_e2=ep.get(2, {}).get("n_free"),
             hv_warm_e1=warm_ep.get(1, {}).get("hv_warm"), hv_cold_e1=warm_ep.get(1, {}).get("hv_cold"),
             hv_warm_e2=warm_ep.get(2, {}).get("hv_warm"), hv_cold_e2=warm_ep.get(2, {}).get("hv_cold"),
@@ -77,6 +77,7 @@ def main():
     ap.add_argument("--time-large", type=float, default=5.0)
     ap.add_argument("--selector", default="adaptive")
     ap.add_argument("--paired-hv", action="store_true")
+    ap.add_argument("--no-recourse", action="store_true")
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
@@ -94,7 +95,8 @@ def main():
         t = args.time_small if n <= 15 else (args.time_medium if n <= 20 else args.time_large)
         for sc in (args.scenarios.split(",") if args.scenarios else scs.keys()):
             for seed in map(int, args.seeds.split(",")):
-                jobs.append((name, sc, seed, args.mode, weights, t, args.selector, args.paired_hv))
+                jobs.append((name, sc, seed, args.mode, weights, t, args.selector, args.paired_hv,
+                             not args.no_recourse))
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w", newline="") as f:

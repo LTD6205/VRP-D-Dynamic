@@ -47,7 +47,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from drone_energy import FixedEndurance
-from dynamic_sim import Plan, SatRecord, Snapshot
+from dynamic_sim import Job, Plan, SatRecord, Snapshot
 from mo_utils import ParetoArchive, simplex_weights
 
 BIG = 1e6
@@ -62,6 +62,7 @@ OPERATORS = (
     "inter_relocate",  # N6 inter-route relocation
     "drone_swap",      # N7 biased centroid swap (2nd echelon)
     "destroy_repair",  # ruin & recreate (spec action set, eq. 11)
+    "job_host",        # recourse: move a re-delivery job to another battery-feasible host satellite
 )
 
 
@@ -71,7 +72,8 @@ OPERATORS = (
 
 class ReplanProblem:
     def __init__(self, snap: Snapshot, T: np.ndarray, tdm: np.ndarray, demand: np.ndarray,
-                 priority: np.ndarray, Q: float, UP: float, battery, n: int):
+                 priority: np.ndarray, Q: float, UP: float, battery, n: int,
+                 jobs: Optional[Dict[int, Job]] = None):
         self.snap = snap
         self.n = n
         self.vend = n + 1
@@ -98,6 +100,22 @@ class ReplanProblem:
         self.energy = self.battery.energy_matrix(tdm, np.asarray(demand, dtype=float))
         self.pair_ok = self.battery.pair_ok(tdm, np.asarray(demand, dtype=float))
 
+        # ---- recourse jobs (residual demand) that still have to be delivered ----
+        locked_jobs = getattr(snap, "locked_jobs", {}) or {}
+        self.jobs: Dict[int, Tuple[int, float]] = {
+            j: (job.cluster, float(job.amount)) for j, job in (jobs or {}).items() if j not in locked_jobs}
+        self.free_jobs = sorted(self.jobs)
+        self.job_waves = {j: max(1, math.ceil(a / UP - 1e-9)) for j, (c, a) in self.jobs.items()}
+        self.job_hosts: Dict[int, List[int]] = {}
+        sats = np.arange(1, n + 1)
+        for j, (c, a) in self.jobs.items():
+            ok = self.battery.pair_ok(tdm[:, [c - 1]], np.array([a]))[:, 0]
+            hosts = [int(h) for h in sats[ok]]
+            # the cluster's own satellite flew this cluster before -- keep it as a last resort
+            self.job_hosts[j] = hosts or [int(jobs[j].host)]
+        self.default_host = {j: (jobs[j].host if jobs[j].host in self.job_hosts[j] else self.job_hosts[j][0])
+                             for j in self.jobs}
+
         # ---- constants from the locked part ----
         self.waves_c = [max(1, math.ceil(x / UP - 1e-9)) for x in self.d]
         used = {k: 0.0 for k in self.active}
@@ -109,6 +127,11 @@ class ReplanProblem:
             f1num += self.w[r.centroid - 1] * q * r.delivery
             if snap.trucks[r.truck].active:
                 used[r.truck] += q
+        for j, r in locked_jobs.items():   # executed / committed re-deliveries (not in f2/f3, only f1 + load)
+            q = r.delivered if r.arrival <= snap.time + 1e-12 else r.demand_at_arrival
+            f1num += self.w[r.centroid - 1] * q * r.delivery
+            if snap.trucks[r.truck].active:
+                used[r.truck] += q
         self.cap = {k: Q - used[k] for k in self.active}
         self.const_sum = sum(a_list) + sum(ts.fixed_return for ts in snap.trucks.values() if not ts.active)
         self.const_min = min(a_list) if a_list else math.inf
@@ -116,8 +139,12 @@ class ReplanProblem:
         self.const_f1 = f1num
 
     # ---------------- evaluation ----------------
-    def evaluate(self, routes: Dict[int, List[int]], sigma: Dict[int, int]):
-        """Returns (violation, (f1, f2, f3)). violation == 0 <=> feasible."""
+    def evaluate(self, routes: Dict[int, List[int]], sigma: Dict[int, int],
+                 hosts: Optional[Dict[int, int]] = None):
+        """Returns (violation, (f1, f2, f3)). violation == 0 <=> feasible.
+        Route items are free satellites (<= n) or re-delivery jobs (> n+1, served from hosts[j])."""
+        n, jobs = self.n, self.jobs
+        hosts = hosts or {}
         T, tdm, d, w, vend = self.T, self.tdm, self.d, self.w, self.vend
         s_arr, lo, hi, f1 = self.const_sum, self.const_min, self.const_max, self.const_f1
         viol = 0.0
@@ -128,6 +155,16 @@ class ReplanProblem:
                 viol += EMPTY_TRUCK_PENALTY
             Tp = None
             for s in r:
+                if s > n:                                  # re-delivery job
+                    c, amt = jobs[s]
+                    h = hosts.get(s, self.default_host[s])
+                    t += T[prev][h]                     # job stop: not counted in f2/f3 itself, but
+                    fly = tdm[h - 1][c - 1]                # it delays every later stop and the return
+                    f1 += w[c - 1] * amt * (t + fly)
+                    t += self.job_waves[s] * 2 * fly
+                    load += amt
+                    prev = h
+                    continue
                 t += T[prev][s]
                 s_arr += t
                 if t < lo:
@@ -147,8 +184,15 @@ class ReplanProblem:
         spread = (hi - lo) if hi >= lo else 0.0
         return viol, (f1 / self.D, spread, s_arr)
 
+    def item_demand(self, s: int, sigma: Dict[int, int]) -> float:
+        return self.jobs[s][1] if s > self.n else self.d[sigma[s] - 1]
+
+    def loc(self, s: int, hosts: Dict[int, int]) -> int:
+        """Physical location of a route item (a job sits at its host satellite)."""
+        return hosts.get(s, self.default_host[s]) if s > self.n else s
+
     def route_load(self, r: List[int], sigma: Dict[int, int]) -> float:
-        return sum(self.d[sigma[s] - 1] for s in r)
+        return sum(self.item_demand(s, sigma) for s in r)
 
     # ---------------- sigma helpers ----------------
     def assign_sigma_greedy(self, sats: List[int], centroids: List[int],
@@ -284,9 +328,10 @@ class ReoptConfig:
 class Sol:
     routes: Dict[int, List[int]]
     sigma: Dict[int, int]
+    hosts: Dict[int, int] = field(default_factory=dict)     # re-delivery job -> host satellite
 
     def copy(self) -> "Sol":
-        return Sol({k: list(v) for k, v in self.routes.items()}, dict(self.sigma))
+        return Sol({k: list(v) for k, v in self.routes.items()}, dict(self.sigma), dict(self.hosts))
 
 
 @dataclass
@@ -340,25 +385,32 @@ class DynamicReoptimizer:
         return others[int(self.rng.integers(len(others)))] if others else None
 
     # ---------- construction ----------
-    def _insert_cost(self, r, pos, s, k):
-        T = self.p.T
-        a = self.p.start[k] if pos == 0 else r[pos - 1]
-        b = self.p.vend if pos == len(r) else r[pos]
-        return T[a][s] + T[s][b] - T[a][b]
+    def _insert_cost(self, r, pos, s, k, hosts, at=None):
+        """Detour of inserting item s (located at `at`) between positions pos-1 and pos."""
+        T, p = self.p.T, self.p
+        a = p.start[k] if pos == 0 else p.loc(r[pos - 1], hosts)
+        b = p.vend if pos == len(r) else p.loc(r[pos], hosts)
+        x = p.loc(s, hosts) if at is None else at
+        return T[a][x] + T[x][b] - T[a][b]
 
     def cheapest_insert(self, sol: Sol, s: int, randomized: bool = True) -> None:
         """Repo's randomized cheapest insertion (P ~ 1/cost; zero-cost positions win),
         restricted to trucks with spare remaining capacity when possible.
         Under a degraded network the zero-detour Manhattan property disappears, so
-        costs are taken from the (asymmetric) expected-time matrix."""
+        costs are taken from the (asymmetric) expected-time matrix.
+        For a re-delivery job the host satellite is chosen jointly with the position
+        (among battery-feasible hosts); a host equal to a neighbouring stop costs 0 extra
+        driving, i.e. the job becomes an extra drone wave at that stop."""
         p = self.p
-        ds = p.d[sol.sigma[s] - 1]
+        ds = p.item_demand(s, sol.sigma)
+        hosts_try = p.job_hosts[s] if s > p.n else [None]
         opts = []
         for k in p.active:
             r = sol.routes[k]
             fits = p.route_load(r, sol.sigma) + ds <= p.cap[k] + 1e-9
             for pos in range(len(r) + 1):
-                opts.append((fits, self._insert_cost(r, pos, s, k), k, pos))
+                for h in hosts_try:
+                    opts.append((fits, self._insert_cost(r, pos, s, k, sol.hosts, at=h), k, pos, h))
         feas = [o for o in opts if o[0]] or opts
         costs = np.array([max(o[1], 0.0) for o in feas])
         if not randomized:
@@ -370,11 +422,13 @@ class DynamicReoptimizer:
             inv = 1.0 / costs
             o = feas[int(self.rng.choice(len(feas), p=inv / inv.sum()))]
         sol.routes[o[2]].insert(o[3], s)
+        if o[4] is not None:
+            sol.hosts[s] = o[4]
 
     def construct(self) -> Sol:
         p = self.p
         sigma = p.assign_sigma_greedy(p.free, p.free_c, self.rng)
-        sol = Sol({k: [] for k in p.active}, sigma)
+        sol = Sol({k: [] for k in p.active}, sigma, {})
         todo = list(p.free)
         # seed depot-start trucks with mutually distant satellites (repo's create_init_tours)
         depot_trucks = [k for k in p.active if p.start[k] == 0]
@@ -387,34 +441,35 @@ class DynamicReoptimizer:
             todo.remove(s)
             last = s
         self.rng.shuffle(todo)
-        for s in todo:
+        for s in todo + list(p.free_jobs):
             self.cheapest_insert(sol, s)
+        return sol
+
+    def _complete(self, sol: Sol) -> Sol:
+        """Insert every free satellite / job that is missing from the routes."""
+        placed = {s for r in sol.routes.values() for s in r}
+        for s in list(self.p.free) + list(self.p.free_jobs):
+            if s not in placed:
+                self.cheapest_insert(sol, s, randomized=False)
         return sol
 
     def warm_start(self, prev_plan: Plan) -> Sol:
         p = self.p
-        free = set(p.free)
-        routes = {k: [s for s in prev_plan.routes.get(k, []) if s in free] for k in p.active}
+        keep = set(p.free) | set(p.free_jobs)
+        routes = {k: [s for s in prev_plan.routes.get(k, []) if s in keep] for k in p.active}
         sigma = {s: prev_plan.sigma[s] for s in p.free}
         if not (set(sigma.values()) == p.free_c_set and p.drone_ok(sigma)):
             sigma = p.project_sigma(sigma, self.rng)
-        sol = Sol(routes, sigma)
-        placed = {s for r in routes.values() for s in r}
-        for s in p.free:
-            if s not in placed:
-                self.cheapest_insert(sol, s, randomized=False)
-        return sol
+        hosts = {j: prev_plan.jobs[j].host for j in p.free_jobs
+                 if j in prev_plan.jobs and prev_plan.jobs[j].host in p.job_hosts[j]}
+        return self._complete(Sol(routes, sigma, hosts))
 
     def project(self, old: Sol) -> Sol:
         p = self.p
-        free = set(p.free)
-        routes = {k: [s for s in old.routes.get(k, []) if s in free] for k in p.active}
-        sol = Sol(routes, p.project_sigma(old.sigma, self.rng))
-        placed = {s for r in routes.values() for s in r}
-        for s in p.free:
-            if s not in placed:
-                self.cheapest_insert(sol, s, randomized=False)
-        return sol
+        keep = set(p.free) | set(p.free_jobs)
+        routes = {k: [s for s in old.routes.get(k, []) if s in keep] for k in p.active}
+        hosts = {j: h for j, h in old.hosts.items() if j in p.jobs and h in p.job_hosts[j]}
+        return self._complete(Sol(routes, p.project_sigma(old.sigma, self.rng), hosts))
 
     # ---------- neighbourhoods (single random move each) ----------
     def op_relocate(self, sol: Sol) -> Optional[Sol]:
@@ -439,7 +494,8 @@ class DynamicReoptimizer:
         r = new.routes[k]
         i = int(self.rng.integers(len(r)))
         others = [j for j in range(len(r)) if j != i]
-        inv = np.array([1.0 / max(self.p.T[r[i]][r[j]], 1e-9) for j in others])
+        L = lambda x: self.p.loc(x, sol.hosts)
+        inv = np.array([1.0 / max(self.p.T[L(r[i])][L(r[j])], 1e-9) for j in others])
         j = others[int(self.rng.choice(len(others), p=inv / inv.sum()))]
         r[i], r[j] = r[j], r[i]
         return new
@@ -505,6 +561,26 @@ class DynamicReoptimizer:
             return None
         return new
 
+    def op_job_host(self, sol: Sol) -> Optional[Sol]:
+        """Recourse move: serve a re-delivery job from another battery-feasible satellite,
+        biased toward hosts that are close to the job's route neighbours."""
+        p = self.p
+        jobs = [j for j in p.free_jobs if len(p.job_hosts[j]) > 1]
+        if not jobs:
+            return None
+        j = jobs[int(self.rng.integers(len(jobs)))]
+        k = next(k for k, r in sol.routes.items() if j in r)
+        r = sol.routes[k]
+        pos = r.index(j)
+        cur = p.loc(j, sol.hosts)
+        cand = [h for h in p.job_hosts[j] if h != cur]
+        costs = np.array([max(self._insert_cost(r[:pos] + r[pos + 1:], pos, j, k, sol.hosts, at=h), 0.0)
+                          for h in cand]) + 1e-3
+        inv = 1.0 / costs
+        new = sol.copy()
+        new.hosts[j] = cand[int(self.rng.choice(len(cand), p=inv / inv.sum()))]
+        return new
+
     def op_destroy_repair(self, sol: Sol) -> Optional[Sol]:
         allsats = [s for r in sol.routes.values() for s in r]
         if len(allsats) < 2:
@@ -542,9 +618,9 @@ class DynamicReoptimizer:
             diff = [x for x in cur if cur[x] != target.get(x)]
             if not self.p.drone_ok({s: cur[s], other: cur[other]}):
                 continue
-            v, o = self.p.evaluate(sol.routes, cur)
+            v, o = self.p.evaluate(sol.routes, cur, sol.hosts)
             if v == 0:
-                self.archive.add(o, Sol({k: list(r) for k, r in sol.routes.items()}, dict(cur)))
+                self.archive.add(o, Sol({k: list(r) for k, r in sol.routes.items()}, dict(cur), dict(sol.hosts)))
             kk = self.key(v, o)
             if best_key is None or kk < best_key:
                 best_key, best_sigma = kk, dict(cur)
@@ -563,7 +639,7 @@ class DynamicReoptimizer:
                     cand = self.apply(op, sol)
                     if cand is None:
                         continue
-                    v, o = self.p.evaluate(cand.routes, cand.sigma)
+                    v, o = self.p.evaluate(cand.routes, cand.sigma, cand.hosts)
                     if v == 0:
                         self.archive.add(o, cand)
                     kk = self.key(v, o)
@@ -582,12 +658,12 @@ class DynamicReoptimizer:
         self.archive = ParetoArchive(cfg.archive_size)
         elite = [p.project_sigma(e, self.rng) for e in (elite or [])]
 
-        v0, o0 = p.evaluate(init.routes, init.sigma)
+        v0, o0 = p.evaluate(init.routes, init.sigma, init.hosts)
         self.scale = np.maximum(np.abs(np.array(o0)), 1e-6)
         if v0 == 0:
             self.archive.add(o0, init.copy())
         for s in archive_seed or []:
-            v, o = p.evaluate(s.routes, s.sigma)
+            v, o = p.evaluate(s.routes, s.sigma, s.hosts)
             if v == 0:
                 self.archive.add(o, s)
 
@@ -612,7 +688,7 @@ class DynamicReoptimizer:
             cand = self.apply(op, cur)
             reward = 0.0
             if cand is not None:
-                v, o = p.evaluate(cand.routes, cand.sigma)
+                v, o = p.evaluate(cand.routes, cand.sigma, cand.hosts)
                 if v == 0 and self.archive.add(o, cand):
                     reward += 1.0
                 kk = self.key(v, o)
@@ -640,7 +716,7 @@ class DynamicReoptimizer:
                 tgt = elite[int(self.rng.integers(len(elite)))]
                 sig, kk = self.path_relink(cur, tgt)
                 if sig is not None and kk < cur_key:
-                    cur, cur_key = Sol(cur.routes, sig), kk
+                    cur, cur_key = Sol(cur.routes, sig, cur.hosts), kk
                 if cur_key[0] == 0 and cur.sigma not in elite:
                     elite.append(dict(cur.sigma))
                     if len(elite) > cfg.maxps:
@@ -649,7 +725,7 @@ class DynamicReoptimizer:
             # single-objective: GRASP-style restart when stuck (repo's restart_patience)
             if cfg.mode == "so" and since >= 3 * cfg.phase_patience:
                 cur = self.construct()
-                v, o = p.evaluate(cur.routes, cur.sigma)
+                v, o = p.evaluate(cur.routes, cur.sigma, cur.hosts)
                 cur, cur_key = self.local_search(cur, self.key(v, o))
                 since = 0
 
@@ -660,7 +736,7 @@ class DynamicReoptimizer:
                 pick = self.archive.best_by_weights(self.wvec, self.scale)
                 if pick is not None:
                     cur = pick[1].copy()
-                v, o = p.evaluate(cur.routes, cur.sigma)
+                v, o = p.evaluate(cur.routes, cur.sigma, cur.hosts)
                 cur_key = best_key = self.key(v, o)
                 since = 0
 
@@ -672,7 +748,7 @@ class DynamicReoptimizer:
             viol = 0.0
         else:
             chosen = cur
-            viol, objs = p.evaluate(cur.routes, cur.sigma)
+            viol, objs = p.evaluate(cur.routes, cur.sigma, cur.hosts)
         ow = list(map(float, getattr(self.sel, "weights", np.ones(len(OPERATORS)))))
         return ReoptResult(chosen.copy(), tuple(objs), viol, self.archive, elite, it,
                            time.process_time() - st, ow)

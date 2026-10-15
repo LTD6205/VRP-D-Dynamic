@@ -39,6 +39,8 @@ def main():
     ap.add_argument("--selector", choices=("adaptive", "uniform"), default="adaptive")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--paired-hv", action="store_true")
+    ap.add_argument("--no-recourse", action="store_true",
+                    help="disable re-delivery jobs (surges after delivery then stay unmet)")
     ap.add_argument("--output", default=None)
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
@@ -57,14 +59,15 @@ def main():
     cfg0 = replace(base, time_limit=args.time0 if args.time0 is not None else 2 * args.time)
 
     out = run_closed_loop(world, args.strategies.split(","), cfg0, cfg, seed=args.seed,
-                          selector=args.selector, paired_hv_check=args.paired_hv, verbose=args.verbose)
+                          selector=args.selector, paired_hv_check=args.paired_hv, verbose=args.verbose,
+                          recourse=not args.no_recourse)
     print(f"\n{name} / {args.scenario}  (realized after executing the whole horizon)")
     print(f"{'strategy':10s} {'f1 prio-wtd delivery':>21s} {'f2 spread':>10s} {'f3 Z1':>9s} "
-          f"{'C_del':>7s} {'unmet%':>7s} {'replan s':>9s}")
+          f"{'C_del':>7s} {'unmet%':>7s} {'re-deliv':>8s} {'replan s':>9s}")
     for s, r in out.items():
         m = r["metrics"]
         print(f"{s:10s} {m['f1']:21.4f} {m['f2']:10.4f} {m['f3']:9.4f} {m['C_del']:7.3f} "
-              f"{100 * m['unmet_ratio']:7.2f} {m['replan_cpu_s']:9.2f}")
+              f"{100 * m['unmet_ratio']:7.2f} {m['n_redeliveries']:8d} {m['replan_cpu_s']:9.2f}")
     if args.output:
         with open(args.output, "w") as f:
             json.dump(dict(instance=name, scenario=args.scenario, seed=args.seed, results=out), f, indent=1,
