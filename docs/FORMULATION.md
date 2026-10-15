@@ -182,6 +182,13 @@ $$e_{i\sigma(i)}\ \le\ E\,(1-\rho)\qquad\forall i .$$
 
 Each extra wave is assumed to start with a fresh (swapped) battery; the swap takes no time.
 
+**Execution safeguard: lighter waves.** A surge can raise a cluster's demand after its
+satellite→cluster pairing is already locked, for example while the truck is driving to that
+satellite. At execution the drones then fly **more, lighter waves**: the smallest
+$n\ge\lceil d/UP\rceil$ with $e_{ij}(v_d,\,d/(U n))\le E(1-\rho)$. This costs extra waiting time
+instead of overflying the battery. The planner itself never selects a battery-infeasible pair
+(C4).
+
 ### 5.3 Timeline recursion (truck $k$, from its committed start)
 
 $$a_{\pi_k(1)}=\alpha_k(t)+\mathbb E[t_{\pi_k(0)\pi_k(1)}],\qquad
@@ -285,7 +292,7 @@ $\lambda^{c}=(1/3,1/3,1/3)$ by default.
 | C1 | $\bigcup_k r_k=F(t)\cup\mathcal J(t)$, each free satellite and each job in exactly one route | every remaining satellite is visited once and every residual demand is scheduled | representation (operators only move or swap stops); checked by `check_plan` |
 | C2 | $\sigma_t$ is a bijection $F(t)\leftrightarrow M_F(t)$ | each cluster served by exactly one satellite | representation (operators only swap centroids) |
 | C3 | $\sum_{i\in r_k} d_{\sigma(i)}(t)\le Q_k(t)\ \ \forall k\in\mathcal K_A$ | truck capacity, minus what was already handed out | penalty $\max(0,L_k-Q_k)$; feasible-first comparison |
-| C4 | $e_{i\sigma(i)}(v_d,\ell_{\sigma(i)})\le E(1-\rho)\ \ \forall i$ (§5.2b) | each sortie's energy, which depends on speed and load, leaves the safety reserve | infeasible pairs are excluded from σ moves, construction and repair; pairs are recomputed each epoch from current demand |
+| C4 | $e_{i\sigma(i)}(v_d,\ell_{\sigma(i)})\le E(1-\rho)\ \ \forall i$ (§5.2b) | each sortie's energy, which depends on speed and load, leaves the safety reserve | infeasible pairs are excluded from σ moves, construction, repair and path relinking; pairs are recomputed each epoch from current demand; any remaining infeasible pair gets a $10^5$ penalty; at execution, extra lighter waves absorb surges on locked pairs |
 | C5 | $d_{\sigma(i)}\le UP$, **relaxed** to waves (§5.2) | drone payload | never infeasible; costs extra waiting |
 | C6 | $\lvert r_k\rvert\ge 1$ if truck $k$ starts at the depot ($t=0$ only) | no idle truck, as in the paper's MILP | penalty $10^5$ |
 | C7 | locked part of the plan unchanged | cannot undo the past | the residual problem contains only free satellites; checked by `check_plan` after every re-plan |
