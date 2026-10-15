@@ -51,7 +51,8 @@ from dynamic_sim import Job, Plan, SatRecord, Snapshot
 from mo_utils import ParetoArchive, simplex_weights
 
 BIG = 1e6
-EMPTY_TRUCK_PENALTY = 1e5   # a depot-start truck must visit >=1 satellite (paper's MILP)
+EMPTY_TRUCK_PENALTY = 1e5
+BATTERY_PENALTY = 1e5       # a satellite->centroid pair the drones cannot fly (C4)   # a depot-start truck must visit >=1 satellite (paper's MILP)
 
 OPERATORS = (
     "relocate",        # N1 intra-route relocation
@@ -172,6 +173,8 @@ class ReplanProblem:
                 if t > hi:
                     hi = t
                 c = sigma[s] - 1
+                if not self.pair_ok[s - 1, c]:     # safety net for C4 (battery)
+                    viol += BATTERY_PENALTY
                 fly = tdm[s - 1][c]
                 f1 += w[c] * d[c] * (t + fly)
                 t += self.waves_c[c] * 2 * fly
@@ -616,8 +619,8 @@ class DynamicReoptimizer:
                 break
             cur[s], cur[other] = cur[other], cur[s]
             diff = [x for x in cur if cur[x] != target.get(x)]
-            if not self.p.drone_ok({s: cur[s], other: cur[other]}):
-                continue
+            if not self.p.drone_ok(cur):        # the walk may pass through infeasible states,
+                continue                        # but only battery-feasible ones are evaluated
             v, o = self.p.evaluate(sol.routes, cur, sol.hosts)
             if v == 0:
                 self.archive.add(o, Sol({k: list(r) for k, r in sol.routes.items()}, dict(cur), dict(sol.hosts)))

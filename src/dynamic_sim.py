@@ -126,11 +126,23 @@ class Simulator:
     def waves(self, d: float) -> int:
         return max(1, int(math.ceil(d / self.UP - 1e-9)))
 
-    def _battery_use(self, fly: float, d: float) -> float:
+    def _battery_use(self, fly: float, d: float, nw: int) -> float:
         if self.battery is None:
             return 0.0
-        e = float(self.battery.model.sortie_energy(fly, self.battery.v_d, self.battery.load_frac(d)))
-        return e / self.battery.model.usable
+        b = self.battery
+        lf = min(1.0, d / (b.U * nw * b.P))
+        return float(b.model.sortie_energy(fly, b.v_d, lf)) / b.model.usable
+
+    def _waves_battery(self, fly: float, d: float):
+        """Waves actually flown: ceil(d / UP), plus extra, lighter waves if the per-drone
+        load would exceed the battery (e.g. a surge after the pairing was locked). Operators
+        split the load rather than overfly the battery; it costs extra waiting time."""
+        nw = self.waves(d)
+        use = self._battery_use(fly, d, nw)
+        while use > 1.0 + 1e-12 and nw < 100:
+            nw += 1
+            use = self._battery_use(fly, d, nw)
+        return nw, use
 
     def simulate(self, plan: Plan) -> Timeline:
         sats: Dict[int, SatRecord] = {}
@@ -151,11 +163,10 @@ class Simulator:
                     d = float(self.demand.demand_at(t)[c - 1])
                 w = float(self.demand.priority_at(t)[c - 1])
                 fly = float(self.tdm[loc - 1, c - 1])
-                nw = self.waves(d)
+                nw, use = self._waves_battery(fly, d)
                 delivered = max(0.0, min(d, self.Q - load))
                 load += delivered
-                rec = SatRecord(k, pos, t, nw * 2 * fly, t + fly, c, d, delivered, nw, w,
-                                self._battery_use(fly, d), loc)
+                rec = SatRecord(k, pos, t, nw * 2 * fly, t + fly, c, d, delivered, nw, w, use, loc)
                 (jobs if job else sats)[item] = rec
                 t += nw * 2 * fly
                 prev = loc
