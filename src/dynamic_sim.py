@@ -51,6 +51,7 @@ class SatRecord:
     delivered: float
     waves: int
     priority: float
+    battery_use: float = 0.0     # sortie energy / usable battery (<= 1 means feasible)
 
 
 @dataclass
@@ -89,7 +90,7 @@ class Snapshot:
 
 class Simulator:
     def __init__(self, n: int, Q: float, UP: float, drone_time: np.ndarray,
-                 net: RoadNetwork, demand: DemandProcess):
+                 net: RoadNetwork, demand: DemandProcess, battery=None):
         self.n = n
         self.vend = n + 1
         self.Q = Q
@@ -97,6 +98,7 @@ class Simulator:
         self.tdm = drone_time          # (n satellites) x (n centroids), hours one-way
         self.net = net
         self.demand = demand
+        self.battery = battery       # drone_energy.DroneBattery or None (no battery check)
 
     def waves(self, d: float) -> int:
         return max(1, int(math.ceil(d / self.UP - 1e-9)))
@@ -117,7 +119,11 @@ class Simulator:
                 nw = self.waves(d)
                 delivered = max(0.0, min(d, self.Q - load))
                 load += delivered
-                sats[s] = SatRecord(k, pos, t, nw * 2 * fly, t + fly, c, d, delivered, nw, w)
+                use = 0.0
+                if self.battery is not None:
+                    e = float(self.battery.model.sortie_energy(fly, self.battery.v_d, self.battery.load_frac(d)))
+                    use = e / self.battery.model.usable
+                sats[s] = SatRecord(k, pos, t, nw * 2 * fly, t + fly, c, d, delivered, nw, w, use)
                 t += nw * 2 * fly
                 prev = s
             dt = self.net.true_time(prev, self.vend, t)
@@ -186,4 +192,6 @@ def realized_metrics(tl: Timeline, demand: DemandProcess, Q: float) -> dict:
         C_del=float(e.max()), C_ret=float(rets.max()), D=D,
         unmet=unmet, unmet_ratio=unmet / D,
         max_load_ratio=float(max(t.load for t in tl.trucks.values()) / Q),
+        max_battery_use=float(max(r.battery_use for r in tl.sats.values())),
+        battery_violations=int(sum(r.battery_use > 1 + 1e-9 for r in tl.sats.values())),
     )

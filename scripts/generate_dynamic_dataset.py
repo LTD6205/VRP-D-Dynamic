@@ -19,8 +19,10 @@ Based on the blueprint in dynamic_2e_ctvrp_research_guide_dataset_blueprint.md
 4. Return-to-depot arcs are encoded as (i, 0).
 5. Demand surges hit the clusters closest to the flood (evacuation shelters),
    not random ones, and come with a priority raise.
-6. drone_endurance_max_h is checked: if no endurance-feasible satellite<->centroid
-   matching exists it is raised to 1.1x the bottleneck value (logged in _meta).
+6. Drone battery: a speed- and load-dependent energy model (src/drone_energy.py,
+   block `drone_energy`). If no battery-feasible satellite<->centroid matching
+   exists even at 1.3x demand, the battery capacity is raised until one does
+   (logged in _meta.battery_note).
 7. An extra partial-observability scenario (`damage_30pct_partial`, reveal_prob
    0.6) is emitted for the POMDP experiments.
 
@@ -45,6 +47,7 @@ from dynamic_env import DemandProcess, RoadNetwork  # noqa: E402
 from dynamic_solver import DynamicReoptimizer, ReoptConfig, ReplanProblem  # noqa: E402
 from dynamic_runner import merge  # noqa: E402
 from scipy.optimize import linear_sum_assignment  # noqa: E402
+from drone_energy import DroneBattery, DroneEnergyModel  # noqa: E402
 
 SUBSET = [
     ("main", "M-08-05-60-1"), ("main", "M-08-05-60-2"),
@@ -56,30 +59,42 @@ SUBSET = [
 ]
 
 
-def bottleneck_endurance(tdm: np.ndarray) -> float:
-    """Smallest T such that a perfect matching with all 2t' <= T exists."""
-    vals = np.unique(2 * tdm)
-    lo, hi = 0, len(vals) - 1
-    while lo < hi:
-        mid = (lo + hi) // 2
-        cost = np.where(2 * tdm <= vals[mid], 0.0, 1.0)
-        r, c = linear_sum_assignment(cost)
-        if cost[r, c].sum() == 0:
-            hi = mid
-        else:
-            lo = mid + 1
-    return float(vals[lo])
+def has_matching(ok: np.ndarray) -> bool:
+    cost = np.where(ok, 0.0, 1.0)
+    r, c = linear_sum_assignment(cost)
+    return cost[r, c].sum() == 0
 
 
-def baseline_arrivals(inst, cl, dist, seed):
+def calibrate_battery(inst, cl, dist, surge_margin: float = 1.3):
+    """Default speed+load battery model; if no battery-feasible satellite<->centroid
+    matching exists even with every demand inflated by `surge_margin`, raise the
+    battery capacity (bisection) until one does."""
+    model = DroneEnergyModel()
+    dem = np.array(cl.demand_n) * surge_margin
+    def ok_with(cap):
+        m = DroneEnergyModel(**{**model.to_dict(), "battery": cap})
+        return has_matching(DroneBattery(m, inst.v_d, inst.no_u, inst.p).pair_ok(dist.time_n_m, dem))
+    if ok_with(model.battery):
+        frac = float((~DroneBattery(model, inst.v_d, inst.no_u, inst.p).pair_ok(dist.time_n_m, np.array(cl.demand_n))).mean())
+        return model, f"default battery; {100 * frac:.0f}% of satellite-centroid pairs battery-infeasible at base demand"
+    lo, hi = model.battery, model.battery * 4
+    for _ in range(30):
+        mid = (lo + hi) / 2
+        lo, hi = (lo, mid) if ok_with(mid) else (mid, hi)
+    model.battery = round(hi * 1.02, 4)
+    return model, f"battery raised to {model.battery} so a feasible matching exists at {surge_margin}x demand"
+
+
+def baseline_arrivals(inst, cl, dist, seed, energy):
     """Deterministic baseline plan (construction + Z1 local search) -> arrival times."""
     n, Q, UP = inst.n, float(inst.q), float(inst.no_u * inst.p)
     net = RoadNetwork(dist.time_n_0)
     dem = DemandProcess(cl.demand_n, {})
+    battery = DroneBattery(energy, inst.v_d, inst.no_u, inst.p)
     sim = Simulator(n, Q, UP, dist.time_n_m, net, dem)
     snap = sim.initial_snapshot(list(range(inst.no_k)))
     prob = ReplanProblem(snap, net.expected_time(), dist.time_n_m, dem.current_demand,
-                         dem.current_priority, Q, UP, np.inf, n)
+                         dem.current_priority, Q, UP, battery, n)
     rng = np.random.default_rng(seed)
     cfg = ReoptConfig(mode="so", weights=(0, 0, 1))
     s = DynamicReoptimizer(prob, cfg, rng)
@@ -103,19 +118,13 @@ def generate(inst_path: Path, out_dir: Path, seed: int = 42) -> Path:
     centre = xy.mean(axis=0)
     radius = np.linalg.norm(xy - centre, axis=1)
 
-    tl = baseline_arrivals(inst, cl, dist, seed)
+    energy, battery_note = calibrate_battery(inst, cl, dist)
+    tl = baseline_arrivals(inst, cl, dist, seed, energy)
     arr = np.array(sorted(r.arrival for r in tl.sats.values()))
     t1 = round(float(np.quantile(arr, 0.30)), 3)
     t2 = round(float(np.quantile(arr, 0.65)), 3)
     if t2 <= t1:
         t2 = round(t1 + 0.05, 3)
-
-    endurance = 0.75
-    need = bottleneck_endurance(dist.time_n_m)
-    endurance_note = "guide default 0.75 h"
-    if need > endurance:
-        endurance = round(need * 1.1, 3)
-        endurance_note = f"raised from 0.75 h to 1.1 x bottleneck ({need:.3f} h)"
 
     priorities = {str(j): round(float(rng.uniform(0.50, 0.85)), 2) for j in range(1, n + 1)}
 
@@ -186,7 +195,7 @@ def generate(inst_path: Path, out_dir: Path, seed: int = 42) -> Path:
         s2 = n2[:k_s]
         scenarios[name] = dict(
             base_instance=inst_path.name, num_satellites=n,
-            drone_endurance_max_h=endurance, reveal_prob=reveal,
+            drone_energy=energy.to_dict(), reveal_prob=reveal,
             markov_transition=DEFAULT_TRANSITION.tolist(),
             flood_centre_satellite=flood_sat + 1,
             initial_priorities=priorities,
@@ -207,7 +216,7 @@ def generate(inst_path: Path, out_dir: Path, seed: int = 42) -> Path:
         )
     scenarios["_meta"] = dict(seed=seed, baseline_arrival_quantiles=[t1, t2],
                               baseline_first_last_arrival=[float(arr[0]), float(arr[-1])],
-                              endurance_note=endurance_note, n_arcs=len(arcs))
+                              battery_note=battery_note, n_arcs=len(arcs))
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{inst_path.stem}.events.json"
     with open(out, "w", encoding="utf-8") as f:

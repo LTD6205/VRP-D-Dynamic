@@ -55,7 +55,11 @@ time, equity, and total fleet time.
 | $b_{ij}^t(s)$ | planner's **belief** over the state of arc $(i,j)$ | `RoadNetwork.belief` |
 | $d_j(t)$ | demand of cluster $j$ (changes with surges) | `DemandProcess` |
 | $w_j(t)\in[0,1]$ | priority of cluster $j$ | `initial_priorities` + updates |
-| $T_d^{\max}$ | drone round-trip endurance | 0.75 h (raised if infeasible) |
+| $E$, $\rho$ | battery capacity (normalized to 1) and landing reserve | $E=1$, $\rho=0.15$ (`drone_energy` block) |
+| $T_0$, $v_{ref}$ | full-battery flight time of an empty drone at the reference speed | 0.65 h (39 min) at 60 km/h |
+| $\omega$ | share of empty-drone power due to weight at $v_{ref}$ (the rest is speed-dependent) | 0.6 |
+| $\beta$ | extra weight-term power at full payload | 0.8 (+80%) |
+| $k_w$, $\bar w$ | optional wind term coefficient and wind speed | 0 (off by default) |
 
 ## 4. Decision variables (at epoch $t$)
 
@@ -120,6 +124,47 @@ w_i=n^{\text{wave}}_i\cdot 2\,t'_{i\sigma(i)}$$
 The number of drone waves needed is the demand divided by the drones' combined payload, rounded
 up. The truck waits for all waves, each one a round trip. When $d\le UP$ there is one wave, which
 is exactly the static paper's model.
+
+### 5.2b Drone battery: energy depends on speed and load (`drone_energy.py`)
+
+**Flight power** while carrying payload $\ell$ at speed $v$, as a share of a full battery per hour:
+
+$$p(v,\ell)=\underbrace{a\Big(1+\beta\,\frac{\ell}{P}\Big)}_{\text{weight term}}+\underbrace{b\Big(\frac{v}{v_{ref}}\Big)^{3}}_{\text{speed term}}+\underbrace{k_w\,\bar w^{2}}_{\text{wind (optional)}},
+\qquad a=\frac{\omega}{T_0},\ \ b=\frac{1-\omega}{T_0}$$
+
+Heavier loads and higher speeds both draw more power. This is the proposal's power model
+$k_1(W_d+L_d)+k_2 v^3+k_3\tilde w^2$ (slide 12), calibrated so that an empty drone at $v_{ref}$
+flies $T_0$ hours on a full battery.
+
+**Per-drone load of one wave.** The cluster's demand is split evenly over the $U$ parallel
+drones of each wave:
+
+$$\ell_{j}=\frac{d_j}{U\,n^{\text{wave}}_j}\ \le P$$
+
+**Energy of one sortie** from satellite $i$ to centroid $j$. The drone flies out loaded and back
+empty, each leg lasting $t'_{ij}=\text{dist}_{ij}/v_d$:
+
+$$e_{ij}=t'_{ij}\Big[p(v_d,\ell_j)+p(v_d,0)\Big]$$
+
+**Battery constraint (C4):** a sortie must leave the safety reserve in the battery,
+
+$$e_{i\sigma(i)}\ \le\ E\,(1-\rho)\qquad\forall i .$$
+
+**Consequences:**
+
+- **Speed.** Flight time falls as $1/v$ but the speed term grows as $v^3$, so range peaks near
+  $v_{ref}$. With the defaults, the one-way range of a fully loaded drone is 11.5 km at 40 km/h,
+  13.4 km at 60 km/h and 12.4 km at 80 km/h. A fixed time budget would wrongly give a faster drone
+  more range.
+- **Load.** At 60 km/h the range drops from 16.6 km empty to 13.4 km at full payload.
+- **Dynamics.** Demand surges raise $\ell_j$. A satellite→cluster pair that was feasible before a
+  surge can become infeasible, which forces a re-assignment of σ at the next epoch. The feasible
+  pairs are recomputed at every epoch from the current demand.
+- **Instances.** On the 12 benchmark instances, 13–32% of satellite–centroid pairs are
+  battery-infeasible at base demand. At t=0 the paper's optimal plan becomes infeasible on 3 of 5
+  checked instances, raising the optimal $Z_1$ by 0.1–0.5%.
+
+Each extra wave is assumed to start with a fresh (swapped) battery; the swap takes no time.
 
 ### 5.3 Timeline recursion (truck $k$, from its committed start)
 
@@ -188,7 +233,7 @@ $\lambda^{c}=(1/3,1/3,1/3)$ by default.
 | C1 | $\bigcup_k r_k=F(t)$, each free satellite in exactly one route | every remaining satellite is visited once | representation (operators only move or swap satellites) |
 | C2 | $\sigma_t$ is a bijection $F(t)\leftrightarrow M_F(t)$ | each cluster served by exactly one satellite | representation (operators only swap centroids) |
 | C3 | $\sum_{i\in r_k} d_{\sigma(i)}(t)\le Q_k(t)\ \ \forall k\in\mathcal K_A$ | truck capacity, minus what was already handed out | penalty $\max(0,L_k-Q_k)$; feasible-first comparison |
-| C4 | $2\,t'_{i\sigma(i)}\le T_d^{\max}\ \ \forall i$ | drone round trip within battery endurance | infeasible σ moves are rejected |
+| C4 | $e_{i\sigma(i)}(v_d,\ell_{\sigma(i)})\le E(1-\rho)\ \ \forall i$ (§5.2b) | each sortie's energy, which depends on speed and load, leaves the safety reserve | infeasible pairs are excluded from σ moves, construction and repair; pairs are recomputed each epoch from current demand |
 | C5 | $d_{\sigma(i)}\le UP$, **relaxed** to waves (§5.2) | drone payload | never infeasible; costs extra waiting |
 | C6 | $\lvert r_k\rvert\ge 1$ if truck $k$ starts at the depot ($t=0$ only) | no idle truck, as in the paper's MILP | penalty $10^5$ |
 | C7 | locked part of the plan unchanged | cannot undo the past | the residual problem contains only free satellites; checked by `check_plan` after every re-plan |
@@ -255,9 +300,10 @@ python3 scripts/generate_dynamic_dataset.py --seed 7 --out instances/dynamic_eve
    it to obtain the satellite arrival times.
 3. **Set the event times.** $t_1$ and $t_2$ are the 30% and 65% quantiles of those arrival times,
    so each event really splits served from unserved satellites.
-4. **Check drone endurance.** If no endurance-feasible satellite↔centroid matching exists at
-   0.75 h, raise $T_d^{\max}$ to 1.1× the bottleneck value, found by a binary search plus
-   assignment.
+4. **Calibrate the battery.** Use the default speed+load energy model (§5.2b). If no
+   battery-feasible satellite↔centroid matching exists even with all demand at 1.3× (surge
+   margin), raise the battery capacity $E$ by bisection until one does. The result is written to
+   `_meta.battery_note`. None of the 12 benchmark instances needed this.
 5. **Set initial priorities.** $w_j\sim U(0.50,0.85)$.
 6. **Generate one scenario per damage level (10/30/50%) and observability setting.**
    - **Flood centre:** an inner-ring satellite that is still unserved at $t_1$.
@@ -279,7 +325,9 @@ python3 scripts/generate_dynamic_dataset.py --seed 7 --out instances/dynamic_eve
 {
   "damage_30pct": {
     "base_instance": "M-09-09-60-1.txt", "num_satellites": 9,
-    "drone_endurance_max_h": 0.75, "reveal_prob": 1.0,
+    "drone_energy": {"v_ref": 60.0, "t_empty_ref": 0.65, "weight_share": 0.6, "beta_payload": 0.8,
+                     "reserve": 0.15, "battery": 1.0, "wind": 0.0, "k_wind": 0.0},
+    "reveal_prob": 1.0,
     "markov_transition": [[0.92,0.06,0.02],[0.15,0.75,0.10],[0.05,0.15,0.80]],
     "initial_priorities": {"1": 0.73, "...": 0.6},
     "epochs": [
@@ -290,7 +338,7 @@ python3 scripts/generate_dynamic_dataset.py --seed 7 --out instances/dynamic_eve
       {"epoch_id": 2, "trigger_time_h": 1.656, "...": "..."}
     ]
   },
-  "_meta": {"seed": 42, "baseline_arrival_quantiles": [1.03, 1.656], "endurance_note": "..."}
+  "_meta": {"seed": 42, "baseline_arrival_quantiles": [0.807, 1.435], "battery_note": "..."}
 }
 ```
 
@@ -329,7 +377,8 @@ The first version is the guide's §3 formulation and §5.3 generator, together w
 | 2-opt asymmetry fix | operators must check direction | no change needed | every move is scored by full re-evaluation, never by delta formulas |
 | Empty truck at t=0 | not discussed | penalty: every depot-start truck visits ≥1 satellite | matches the static MILP, so t=0 reproduces the paper |
 | Search operators | N1–N7 | N1–N7 plus **destroy-repair**; moves focused on routes with high $c_k(t)$ | spec action set (eq. 11) and segment idea (eq. 9) |
-| Vehicle crashes, variable drone speed, multi-drop sorties | in the proposal slides | **not modelled** (vehicles always operational, fixed $v_d$, out-and-back sorties) | simplifications recommended by guide §2 |
+| Drone battery | proposal: energy $\propto k_1(W+L)+k_2v^3+k_3\tilde w^2$, sequential drain, probabilistic reserve; guide: fixed time budget $2t'\le T_d^{\max}$ | **energy model depending on speed and load** (same form as the proposal, wind optional), deterministic reserve $\rho$ | keeps the proposal's physics while staying an O(1) check per sortie; the fixed time budget never bound on these instances and gave faster drones more range |
+| Vehicle crashes, variable drone speed, multi-drop sorties | in the proposal slides | **not modelled** (vehicles always operational, fixed $v_d$ per instance, out-and-back sorties) | simplifications recommended by guide §2 |
 | Dynamic MILP | $x\le\xi$, recomputed $H(t)$ | **not implemented** (no Gurobi licence here) | listed as future work |
 
 **Known limitation.** Demand that surges at a cluster *already served* becomes unmet, because each

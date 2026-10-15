@@ -2,7 +2,16 @@
  "damage_10pct": {
   "base_instance": "M-08-05-60-1.txt",
   "num_satellites": 5,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 1.0,
   "markov_transition": [
    [
@@ -63,7 +72,7 @@
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.897,
+    "trigger_time_h": 2.149,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -78,10 +87,10 @@
      }
     ],
     "demand_multipliers": {
-     "1": 1.24
+     "5": 1.24
     },
     "priority_updates": {
-     "1": 0.95
+     "5": 0.95
     }
    }
   ]
@@ -89,7 +98,16 @@
  "damage_30pct": {
   "base_instance": "M-08-05-60-1.txt",
   "num_satellites": 5,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 1.0,
   "markov_transition": [
    [
@@ -170,7 +188,7 @@
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.897,
+    "trigger_time_h": 2.149,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -225,10 +243,10 @@
      }
     ],
     "demand_multipliers": {
-     "1": 1.23
+     "5": 1.23
     },
     "priority_updates": {
-     "1": 0.95
+     "5": 0.95
     }
    }
   ]
@@ -236,7 +254,16 @@
  "damage_50pct": {
   "base_instance": "M-08-05-60-1.txt",
   "num_satellites": 5,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 1.0,
   "markov_transition": [
    [
@@ -327,7 +354,7 @@
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.897,
+    "trigger_time_h": 2.149,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -392,10 +419,10 @@
      }
     ],
     "demand_multipliers": {
-     "1": 1.21
+     "5": 1.21
     },
     "priority_updates": {
-     "1": 0.95
+     "5": 0.95
     }
    }
   ]
@@ -403,7 +430,16 @@
  "damage_30pct_partial": {
   "base_instance": "M-08-05-60-1.txt",
   "num_satellites": 5,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 0.6,
   "markov_transition": [
    [
@@ -474,7 +510,7 @@
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.897,
+    "trigger_time_h": 2.149,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -519,10 +555,10 @@
      }
     ],
     "demand_multipliers": {
-     "1": 1.21
+     "5": 1.21
     },
     "priority_updates": {
-     "1": 0.95
+     "5": 0.95
     }
    }
   ]
@@ -531,13 +567,13 @@
   "seed": 42,
   "baseline_arrival_quantiles": [
    1.379,
-   1.897
+   2.149
   ],
   "baseline_first_last_arrival": [
    0.6758025,
-   2.643883789332437
+   3.0618967017404897
   ],
-  "endurance_note": "guide default 0.75 h",
+  "battery_note": "default battery; 32% of satellite-centroid pairs battery-infeasible at base demand",
   "n_arcs": 30
  }
 }

@@ -8,7 +8,9 @@ At every decision epoch it solves the residual problem left by `Simulator.commit
 * the FREE satellites must be (re)distributed among active trucks and matched
   one-to-one to the FREE centroids (sigma_t);
 * arc times are the planner's expected times E[t_ij(t)] (belief model);
-* drone round-trips must respect the endurance limit 2 t'_{ij} <= T_d^max.
+* every drone sortie must be battery-feasible: its energy, which depends on the
+  flight SPEED v_d and the carried LOAD (src/drone_energy.py), must not exceed the
+  usable battery, e_ij(v_d, l_j) <= E (1 - reserve).
 
 Objectives (research guide Sec. 3.4, all over the WHOLE horizon so values are
 comparable across epochs; locked parts are constants):
@@ -44,6 +46,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from drone_energy import FixedEndurance
 from dynamic_sim import Plan, SatRecord, Snapshot
 from mo_utils import ParetoArchive, simplex_weights
 
@@ -68,7 +71,7 @@ OPERATORS = (
 
 class ReplanProblem:
     def __init__(self, snap: Snapshot, T: np.ndarray, tdm: np.ndarray, demand: np.ndarray,
-                 priority: np.ndarray, Q: float, UP: float, endurance: float, n: int):
+                 priority: np.ndarray, Q: float, UP: float, battery, n: int):
         self.snap = snap
         self.n = n
         self.vend = n + 1
@@ -80,7 +83,8 @@ class ReplanProblem:
         self.w = [float(x) for x in priority]
         self.Q = Q
         self.UP = UP
-        self.endurance = endurance
+        # battery: drone_energy.DroneBattery (speed+load energy model) or a number (legacy fixed time budget)
+        self.battery = FixedEndurance(battery) if isinstance(battery, (int, float)) else battery
         self.D = float(sum(self.d))
 
         self.free = list(snap.free_sats)
@@ -90,8 +94,9 @@ class ReplanProblem:
         self.start = {k: snap.trucks[k].start_node for k in self.active}
         self.avail = {k: snap.trucks[k].avail_time for k in self.active}
 
-        # endurance-feasible satellite/centroid pairs
-        self.pair_ok = (2 * tdm) <= endurance + 1e-9
+        # battery-feasible satellite/centroid pairs at the CURRENT demand (load depends on demand)
+        self.energy = self.battery.energy_matrix(tdm, np.asarray(demand, dtype=float))
+        self.pair_ok = self.battery.pair_ok(tdm, np.asarray(demand, dtype=float))
 
         # ---- constants from the locked part ----
         self.waves_c = [max(1, math.ceil(x / UP - 1e-9)) for x in self.d]
@@ -149,7 +154,7 @@ class ReplanProblem:
     def assign_sigma_greedy(self, sats: List[int], centroids: List[int],
                             rng: np.random.Generator, base: Optional[Dict[int, int]] = None) -> Dict[int, int]:
         """Biased-random matching (repo's generate_drone_route: P ~ 1/t') restricted to
-        endurance-feasible pairs; falls back to an assignment-problem solve if the
+        battery-feasible pairs; falls back to an assignment-problem solve if the
         random pass dead-ends."""
         sigma = dict(base or {})
         left_c = [c for c in centroids if c not in sigma.values()]
@@ -168,7 +173,7 @@ class ReplanProblem:
             left_c.remove(c)
         if ok:
             return sigma
-        # exact fallback: min total flight time subject to endurance
+        # exact fallback: min total flight time subject to battery feasibility
         sigma = dict(base or {})
         cost = np.array([[self.tdm[s - 1][c - 1] if self.pair_ok[s - 1, c - 1] else BIG
                           for c in [c for c in centroids if c not in sigma.values()]] for s in left_s])
@@ -180,7 +185,7 @@ class ReplanProblem:
 
     def project_sigma(self, old: Dict[int, int], rng) -> Dict[int, int]:
         """Restrict an old (previous-epoch) assignment to the current free sets and
-        complete it -- an elite sigma is NOT automatically valid after commitment
+        complete it (battery-feasible) -- an elite sigma is NOT automatically valid after commitment
         because some of its centroids may now be locked to other satellites."""
         sigma, used = {}, set()
         for s in self.free:

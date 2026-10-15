@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from common import cluster_victims, compute_distances, parse_instance
+from drone_energy import DroneBattery
 from dynamic_env import DemandProcess, RoadNetwork, Scenario, load_scenarios
 from dynamic_sim import Plan, Simulator, realized_metrics
 from dynamic_solver import (DynamicReoptimizer, ReoptConfig, ReplanProblem, Sol, drl_state,
@@ -84,12 +85,13 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
     inst, cl, dist, sc = world.inst, world.clustered, world.dist, world.scenario
     n, Q, UP = inst.n, float(inst.q), float(inst.no_u * inst.p)
     trucks = list(range(inst.no_k))
+    battery = DroneBattery(sc.energy, inst.v_d, inst.no_u, inst.p)
     epochs = sc.epochs
 
     def fresh_env():
         net = RoadNetwork(dist.time_n_0, sc.transition, sc.reveal_prob, rng=np.random.default_rng(seed + 7919))
         dem = DemandProcess(cl.demand_n, sc.initial_priorities)
-        return net, dem, Simulator(n, Q, UP, dist.time_n_m, net, dem)
+        return net, dem, Simulator(n, Q, UP, dist.time_n_m, net, dem, battery)
 
     # ---------------- shared epoch-0 solve ----------------
     net, dem, sim = fresh_env()
@@ -99,7 +101,7 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
     dem.apply(0.0, ev0.demand_multipliers, ev0.priority_updates)
     snap0 = sim.initial_snapshot(trucks)
     prob0 = ReplanProblem(snap0, net.expected_time(), dist.time_n_m, dem.current_demand,
-                          dem.current_priority, Q, UP, sc.drone_endurance_h, n)
+                          dem.current_priority, Q, UP, battery, n)
     rng0 = np.random.default_rng(seed)
     solver0 = DynamicReoptimizer(prob0, cfg0, rng0, make_selector(selector, rng0))
     res0 = solver0.solve(solver0.construct())
@@ -129,7 +131,7 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
             dem.apply(ev.time, ev.demand_multipliers, ev.priority_updates)
             T = net.expected_time()
             prob = ReplanProblem(snap, T, dist.time_n_m, dem.current_demand, dem.current_priority,
-                                 Q, UP, sc.drone_endurance_h, n)
+                                 Q, UP, battery, n)
             rec = dict(epoch=ev.epoch_id, time=ev.time, n_free=len(prob.free), n_active=len(prob.active))
             if strat == "static" or not prob.free or not prob.active:
                 v, o = prob.evaluate({k: [s for s in plan.routes[k] if s in set(prob.free)] for k in prob.active},

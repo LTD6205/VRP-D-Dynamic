@@ -39,6 +39,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from drone_energy import DroneEnergyModel
+
 STATES = ("open", "degraded", "closed_detour")
 STATE_INDEX = {"open": 0, "degraded": 1, "closed_detour": 2, "detour": 2, "closed": 2}
 PHI = np.array([1.0, 2.5, 5.0])
@@ -83,6 +85,7 @@ class Scenario:
     epochs: List[EpochEvent]
     transition: np.ndarray = field(default_factory=lambda: DEFAULT_TRANSITION.copy())
     reveal_prob: float = 1.0
+    energy: DroneEnergyModel = field(default_factory=DroneEnergyModel)
 
 
 def _parse_epoch(e: dict) -> EpochEvent:
@@ -119,6 +122,7 @@ def load_scenarios(path: str) -> Dict[str, Scenario]:
             epochs=sorted((_parse_epoch(e) for e in sc["epochs"]), key=lambda e: e.time),
             transition=np.array(sc.get("markov_transition", DEFAULT_TRANSITION.tolist()), dtype=float),
             reveal_prob=float(sc.get("reveal_prob", 1.0)),
+            energy=DroneEnergyModel.from_dict(sc.get("drone_energy")),
         )
     return out
 

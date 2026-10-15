@@ -2,7 +2,16 @@
  "damage_10pct": {
   "base_instance": "M-20-20-60-2.txt",
   "num_satellites": 20,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 1.0,
   "markov_transition": [
    [
@@ -55,7 +64,7 @@
    },
    {
     "epoch_id": 1,
-    "trigger_time_h": 0.701,
+    "trigger_time_h": 0.69,
     "description": "Flood onset around the flood centre; nearby shelters surge",
     "edge_updates": [
      {
@@ -201,18 +210,18 @@
     ],
     "demand_multipliers": {
      "5": 1.18,
-     "18": 1.12,
-     "13": 1.19
+     "10": 1.12,
+     "3": 1.19
     },
     "priority_updates": {
      "5": 1.0,
-     "18": 1.0,
-     "13": 1.0
+     "10": 1.0,
+     "3": 1.0
     }
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.037,
+    "trigger_time_h": 1.09,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -387,14 +396,14 @@
      }
     ],
     "demand_multipliers": {
-     "17": 1.18,
-     "6": 1.28,
-     "14": 1.18
+     "18": 1.18,
+     "17": 1.28,
+     "6": 1.18
     },
     "priority_updates": {
+     "18": 0.95,
      "17": 0.95,
-     "6": 0.95,
-     "14": 0.95
+     "6": 0.95
     }
    }
   ]
@@ -402,7 +411,16 @@
  "damage_30pct": {
   "base_instance": "M-20-20-60-2.txt",
   "num_satellites": 20,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 1.0,
   "markov_transition": [
    [
@@ -455,7 +473,7 @@
    },
    {
     "epoch_id": 1,
-    "trigger_time_h": 0.701,
+    "trigger_time_h": 0.69,
     "description": "Flood onset around the flood centre; nearby shelters surge",
     "edge_updates": [
      {
@@ -796,18 +814,18 @@
     ],
     "demand_multipliers": {
      "5": 1.14,
-     "18": 1.17,
-     "13": 1.12
+     "10": 1.17,
+     "3": 1.12
     },
     "priority_updates": {
      "5": 1.0,
-     "18": 1.0,
-     "13": 1.0
+     "10": 1.0,
+     "3": 1.0
     }
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.037,
+    "trigger_time_h": 1.09,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -1202,14 +1220,14 @@
      }
     ],
     "demand_multipliers": {
-     "17": 1.29,
-     "6": 1.25,
-     "14": 1.21
+     "18": 1.29,
+     "17": 1.25,
+     "6": 1.21
     },
     "priority_updates": {
+     "18": 0.95,
      "17": 0.95,
-     "6": 0.95,
-     "14": 0.95
+     "6": 0.95
     }
    }
   ]
@@ -1217,7 +1235,16 @@
  "damage_50pct": {
   "base_instance": "M-20-20-60-2.txt",
   "num_satellites": 20,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 1.0,
   "markov_transition": [
    [
@@ -1270,7 +1297,7 @@
    },
    {
     "epoch_id": 1,
-    "trigger_time_h": 0.701,
+    "trigger_time_h": 0.69,
     "description": "Flood onset around the flood centre; nearby shelters surge",
     "edge_updates": [
      {
@@ -1836,18 +1863,18 @@
     ],
     "demand_multipliers": {
      "5": 1.17,
-     "18": 1.14,
-     "17": 1.12
+     "3": 1.14,
+     "18": 1.12
     },
     "priority_updates": {
      "5": 1.0,
-     "18": 1.0,
-     "17": 1.0
+     "3": 1.0,
+     "18": 1.0
     }
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.037,
+    "trigger_time_h": 1.09,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
@@ -2512,13 +2539,13 @@
      }
     ],
     "demand_multipliers": {
-     "6": 1.17,
-     "14": 1.24,
+     "17": 1.17,
+     "6": 1.24,
      "7": 1.2
     },
     "priority_updates": {
+     "17": 0.95,
      "6": 0.95,
-     "14": 0.95,
      "7": 0.95
     }
    }
@@ -2527,7 +2554,16 @@
  "damage_30pct_partial": {
   "base_instance": "M-20-20-60-2.txt",
   "num_satellites": 20,
-  "drone_endurance_max_h": 0.75,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
   "reveal_prob": 0.6,
   "markov_transition": [
    [
@@ -2546,7 +2582,7 @@
     0.8
    ]
   ],
-  "flood_centre_satellite": 18,
+  "flood_centre_satellite": 14,
   "initial_priorities": {
    "1": 0.77,
    "2": 0.65,
@@ -2580,9 +2616,209 @@
    },
    {
     "epoch_id": 1,
-    "trigger_time_h": 0.701,
+    "trigger_time_h": 0.69,
     "description": "Flood onset around the flood centre; nearby shelters surge",
     "edge_updates": [
+     {
+      "u": 13,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 14,
+      "state": "degraded"
+     },
      {
       "u": 18,
       "v": 0,
@@ -2601,12 +2837,12 @@
      {
       "u": 13,
       "v": 18,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 18,
       "v": 13,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 18,
@@ -2614,19 +2850,9 @@
       "state": "degraded"
      },
      {
-      "u": 7,
-      "v": 18,
-      "state": "degraded"
-     },
-     {
       "u": 18,
       "v": 9,
-      "state": "degraded"
-     },
-     {
-      "u": 9,
-      "v": 18,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 3,
@@ -2641,22 +2867,17 @@
      {
       "u": 18,
       "v": 16,
-      "state": "degraded"
-     },
-     {
-      "u": 16,
-      "v": 18,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 6,
       "v": 18,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 18,
       "v": 6,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 18,
@@ -2671,32 +2892,37 @@
      {
       "u": 18,
       "v": 1,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 1,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
       "v": 18,
       "state": "closed_detour"
      },
      {
       "u": 18,
       "v": 5,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 5,
       "v": 18,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 18,
       "v": 20,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 20,
       "v": 18,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 19,
@@ -2726,7 +2952,12 @@
      {
       "u": 15,
       "v": 18,
-      "state": "closed_detour"
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 15,
+      "state": "degraded"
      },
      {
       "u": 18,
@@ -2734,14 +2965,14 @@
       "state": "degraded"
      },
      {
-      "u": 11,
+      "u": 8,
       "v": 18,
       "state": "degraded"
      },
      {
-      "u": 18,
-      "v": 11,
-      "state": "degraded"
+      "u": 11,
+      "v": 18,
+      "state": "closed_detour"
      },
      {
       "u": 17,
@@ -2749,306 +2980,151 @@
       "state": "closed_detour"
      },
      {
-      "u": 8,
-      "v": 18,
-      "state": "degraded"
-     },
-     {
-      "u": 18,
-      "v": 15,
-      "state": "closed_detour"
-     },
-     {
       "u": 18,
       "v": 17,
       "state": "closed_detour"
-     },
-     {
-      "u": 18,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 18,
-      "state": "closed_detour"
-     },
-     {
-      "u": 18,
-      "v": 10,
-      "state": "closed_detour"
-     },
-     {
-      "u": 10,
-      "v": 18,
-      "state": "closed_detour"
-     },
-     {
-      "u": 13,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 13,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 19,
-      "state": "closed_detour"
-     },
-     {
-      "u": 7,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 7,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 6,
-      "state": "closed_detour"
-     },
-     {
-      "u": 6,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 9,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 4,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 8,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 8,
-      "state": "degraded"
-     },
-     {
-      "u": 20,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 20,
-      "state": "degraded"
-     },
-     {
-      "u": 3,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 3,
-      "state": "closed_detour"
-     },
-     {
-      "u": 5,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 12,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 12,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 10,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 5,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 9,
-      "state": "closed_detour"
-     },
-     {
-      "u": 19,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 16,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 16,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 1,
-      "state": "closed_detour"
-     },
-     {
-      "u": 1,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 15,
-      "state": "closed_detour"
-     },
-     {
-      "u": 15,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 10,
-      "v": 14,
-      "state": "degraded"
      }
     ],
     "demand_multipliers": {
-     "5": 1.16,
-     "13": 1.15,
-     "18": 1.19
+     "5": 1.14,
+     "10": 1.17,
+     "3": 1.11
     },
     "priority_updates": {
      "5": 1.0,
-     "13": 1.0,
-     "18": 1.0
+     "10": 1.0,
+     "3": 1.0
     }
    },
    {
     "epoch_id": 2,
-    "trigger_time_h": 1.037,
+    "trigger_time_h": 1.09,
     "description": "Flood progression + escalation; newly reported shelter demand",
     "edge_updates": [
      {
-      "u": 14,
-      "v": 8,
-      "state": "degraded"
-     },
-     {
       "u": 8,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 12,
+      "v": 18,
       "state": "closed_detour"
      },
      {
-      "u": 11,
-      "v": 14,
+      "u": 18,
+      "v": 8,
       "state": "closed_detour"
      },
      {
-      "u": 14,
-      "v": 11,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
+      "u": 18,
       "v": 3,
       "state": "closed_detour"
      },
      {
       "u": 3,
-      "v": 14,
+      "v": 18,
       "state": "closed_detour"
      },
      {
-      "u": 14,
-      "v": 4,
-      "state": "closed_detour"
-     },
-     {
-      "u": 4,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 20,
+      "u": 18,
+      "v": 15,
       "state": "degraded"
      },
      {
-      "u": 20,
-      "v": 14,
+      "u": 15,
+      "v": 18,
       "state": "degraded"
      },
      {
-      "u": 14,
-      "v": 2,
-      "state": "degraded"
-     },
-     {
-      "u": 2,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
-      "v": 16,
-      "state": "degraded"
-     },
-     {
-      "u": 16,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
-      "u": 14,
+      "u": 18,
       "v": 17,
       "state": "degraded"
      },
      {
-      "u": 14,
-      "v": 0,
-      "state": "degraded"
-     },
-     {
-      "u": 0,
-      "v": 14,
-      "state": "degraded"
-     },
-     {
       "u": 17,
-      "v": 14,
-      "state": "closed_detour"
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 6,
+      "state": "degraded"
      },
      {
       "u": 6,
-      "v": 14,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 18,
       "state": "closed_detour"
      },
      {
-      "u": 14,
-      "v": 6,
+      "u": 18,
+      "v": 4,
       "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 18,
+      "state": "degraded"
      },
      {
       "u": 20,
@@ -3063,27 +3139,32 @@
      {
       "u": 20,
       "v": 8,
-      "state": "degraded"
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 20,
+      "state": "closed_detour"
      },
      {
       "u": 17,
       "v": 20,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 20,
       "v": 17,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 20,
       "v": 11,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 11,
       "v": 20,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 20,
@@ -3102,18 +3183,13 @@
      },
      {
       "u": 20,
-      "v": 7,
-      "state": "degraded"
-     },
-     {
-      "u": 20,
       "v": 9,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 9,
       "v": 20,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 16,
@@ -3122,18 +3198,8 @@
      },
      {
       "u": 20,
-      "v": 16,
-      "state": "degraded"
-     },
-     {
-      "u": 20,
       "v": 1,
-      "state": "degraded"
-     },
-     {
-      "u": 1,
-      "v": 20,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 20,
@@ -3151,13 +3217,23 @@
       "state": "degraded"
      },
      {
+      "u": 13,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
       "u": 20,
       "v": 12,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 12,
       "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 7,
       "state": "degraded"
      },
      {
@@ -3166,29 +3242,14 @@
       "state": "degraded"
      },
      {
-      "u": 8,
-      "v": 20,
-      "state": "closed_detour"
-     },
-     {
       "u": 20,
       "v": 6,
       "state": "degraded"
      },
      {
-      "u": 6,
-      "v": 20,
-      "state": "degraded"
-     },
-     {
-      "u": 13,
-      "v": 20,
-      "state": "degraded"
-     },
-     {
       "u": 0,
       "v": 20,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 5,
@@ -3201,6 +3262,16 @@
       "state": "degraded"
      },
      {
+      "u": 1,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
       "u": 20,
       "v": 10,
       "state": "degraded"
@@ -3208,6 +3279,11 @@
      {
       "u": 3,
       "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 3,
       "state": "degraded"
      },
      {
@@ -3223,11 +3299,11 @@
      {
       "u": 15,
       "v": 20,
-      "state": "closed_detour"
+      "state": "degraded"
      },
      {
       "u": 20,
-      "v": 3,
+      "v": 16,
       "state": "degraded"
      },
      {
@@ -3247,7 +3323,17 @@
      },
      {
       "u": 6,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
       "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 6,
       "state": "degraded"
      },
      {
@@ -3288,12 +3374,7 @@
      {
       "u": 6,
       "v": 1,
-      "state": "degraded"
-     },
-     {
-      "u": 1,
-      "v": 6,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
       "u": 6,
@@ -3301,95 +3382,75 @@
       "state": "degraded"
      },
      {
-      "u": 19,
-      "v": 6,
-      "state": "degraded"
-     },
-     {
       "u": 6,
       "v": 4,
-      "state": "degraded"
+      "state": "closed_detour"
      },
      {
-      "u": 13,
+      "u": 4,
       "v": 6,
-      "state": "degraded"
-     },
-     {
-      "u": 7,
-      "v": 18,
       "state": "closed_detour"
      },
      {
-      "u": 9,
-      "v": 18,
+      "u": 14,
+      "v": 15,
       "state": "closed_detour"
      },
      {
-      "u": 18,
-      "v": 16,
+      "u": 11,
+      "v": 14,
       "state": "closed_detour"
      },
      {
-      "u": 18,
-      "v": 8,
-      "state": "closed_detour"
-     },
-     {
-      "u": 18,
+      "u": 14,
       "v": 11,
       "state": "closed_detour"
      },
      {
-      "u": 7,
+      "u": 0,
       "v": 14,
       "state": "closed_detour"
      },
      {
-      "u": 14,
-      "v": 7,
+      "u": 6,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 13,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 1,
       "state": "closed_detour"
      },
      {
       "u": 8,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 8,
-      "state": "closed_detour"
-     },
-     {
-      "u": 20,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 14,
-      "v": 20,
-      "state": "closed_detour"
-     },
-     {
-      "u": 19,
-      "v": 14,
-      "state": "closed_detour"
-     },
-     {
-      "u": 10,
-      "v": 14,
+      "v": 18,
       "state": "closed_detour"
      }
     ],
     "demand_multipliers": {
-     "17": 1.24,
-     "6": 1.23,
-     "14": 1.24
+     "18": 1.2,
+     "17": 1.2,
+     "6": 1.22
     },
     "priority_updates": {
+     "18": 0.95,
      "17": 0.95,
-     "6": 0.95,
-     "14": 0.95
+     "6": 0.95
     }
    }
   ]
@@ -3397,14 +3458,14 @@
  "_meta": {
   "seed": 42,
   "baseline_arrival_quantiles": [
-   0.701,
-   1.037
+   0.69,
+   1.09
   ],
   "baseline_first_last_arrival": [
    0.5440450000000001,
-   1.3729428292314518
+   1.6842973250273392
   ],
-  "endurance_note": "guide default 0.75 h",
+  "battery_note": "default battery; 17% of satellite-centroid pairs battery-infeasible at base demand",
   "n_arcs": 420
  }
 }

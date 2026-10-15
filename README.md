@@ -59,8 +59,18 @@ The planner optimizes on the belief, while the simulator executes on the truth.
 
 **Second echelon.** Drones fly out and back, $w_i = \lceil d_{\sigma(i)}/UP\rceil\cdot 2t'_{i\sigma(i)}$.
 When $d \le UP$, which holds for every shipped instance, this is the paper's single parallel
-sortie. A demand surge above $UP$ becomes extra sortie waves instead of an infeasibility. The
-endurance limit $2t'_{i\sigma(i)}\le T_d^{\max}$ is enforced on every σ move.
+sortie. A demand surge above $UP$ becomes extra sortie waves instead of an infeasibility.
+
+**Drone battery** (`src/drone_energy.py`). The energy of each sortie depends on the flight
+**speed** and the carried **load**. The power model is
+$p(v,\ell)=a(1+\beta\ell/P)+b(v/v_{ref})^3$, and each sortie flies out loaded and back empty:
+$e_{ij}=t'_{ij}[p(v_d,\ell_j)+p(v_d,0)]\le E(1-\rho)$.
+- Range peaks near 60 km/h and shrinks with payload.
+- A demand surge can make a satellite→cluster pair infeasible and force a re-assignment.
+- The constraint is enforced on every σ move, and feasible pairs are recomputed each epoch from
+  the current demand.
+- Parameters are in each scenario's `drone_energy` block; details are in
+  [`docs/FORMULATION.md`](docs/FORMULATION.md) §5.2b.
 
 **Objectives** are computed over the whole horizon, with locked parts entering as constants so
 values are comparable across epochs (guide §3.4):
@@ -185,7 +195,7 @@ before the surge. See §6.1.
 4. **Elite pool across epochs (guide §4.3)** claims old σ's "remain valid permutations". That does
    not hold: after commitment some centroids are locked to other satellites, so an old σ restricted
    to the free satellites is generally not a bijection onto the free centroids. `project_sigma`
-   repairs it by keeping compatible pairs and re-matching the rest under endurance.
+   repairs it by keeping compatible pairs and re-matching the rest under the battery constraint.
 5. **2-opt asymmetry (guide §1.2.2).** No operator change is needed in this code base. Every move,
    in the original repo and here, is scored by *full* recomputation of the route times from the
    matrix, not by delta formulas, so asymmetric $t_{ij}\ne t_{ji}$ are handled automatically. Under
