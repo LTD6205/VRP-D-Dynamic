@@ -20,11 +20,16 @@ static solvers, the MILP and the shipped instances behave exactly as before.
 
 | File | Role |
 |---|---|
-| `src/dynamic_env.py` | 3-state road model (Open / Degraded ×2.5 / Detour ×5.0), true state vs. planner **belief** with Markov prediction and partial observation (`reveal_prob`), demand and priority process, `.events.json` loader |
-| `src/dynamic_sim.py` | Executes a plan on the *true* network (arc time fixed at departure), **freezes history** at an event (`commit`), creates **re-delivery jobs** for residual demand (`create_residual_jobs`), and computes realized KPIs |
+| `src/dynamic_env.py` | 3-state road model (Open / Degraded ×2.5 / Detour ×5.0), true state vs. planner **belief** (POMDP: Markov prediction, partial and **noisy** reports with Bayes update, chance-constrained planning view), demand and priority process, `.events.json` loader |
+| `src/dynamic_sim.py` | Executes a plan on the *true* network (arc time fixed at departure), **freezes history** at an event (`commit`), applies the **demand rule** (`admissible_surges`), creates **re-delivery jobs** for residual demand (`create_residual_jobs`), and computes realized KPIs |
 | `src/dynamic_solver.py` | Residual problem at epoch *t* plus the multi-objective re-optimizer: N1–N7 from the repo plus destroy-repair, segment-focused moves, best-of-K local search, path relinking with an elite σ-pool that survives epochs, Pareto archive, and the operator-selector hook (the slot for the DRL agent) |
 | `src/dynamic_runner.py` | Closed loop: solve at t=0 → execute → event → freeze → re-plan → … for the strategies `static`, `restart` and `warm`, with invariant checks after every re-plan |
 | `src/mo_utils.py` | Pareto archive (crowding truncation), exact 3-D hypervolume, Das-Dennis weights |
+| `src/drone_energy.py` | Drone battery: sortie energy from speed, load and distance |
+| `src/drl_selector.py` | **DRL operator controller**: Double DQN in plain numpy (no deep-learning library needed) |
+| `scripts/train_drl_selector.py` | Trains the DQN on a separate training set (`instances/dynamic_events_train/`) → `models/dqn_selector.npz` |
+| `scripts/run_pomdp_experiment.py` | POMDP experiment: oracle / naive / belief / belief + chance-constraint planners → `results/dynamic_pomdp.csv` |
+| `scripts/run_selector_experiment.py` | Paired operator-selector experiment: uniform / adaptive / DQN → `results/dynamic_selectors.csv` |
 | `scripts/generate_dynamic_dataset.py` | Corrected version of the guide's generator → `instances/dynamic_events/*.events.json` |
 | `scripts/run_dynamic.py` | Runs one instance × scenario |
 | `scripts/run_dynamic_experiments.py`, `scripts/summarize_dynamic.py` | Run and summarize the benchmark → `results/dynamic_*.csv` |
@@ -50,10 +55,21 @@ $\sigma_t$.
 
 **Road model** (guide §3.2): $E[t_{ij}(t)] = t^0_{ij}\sum_s \phi_s b^t_{ij}(s)$ with $\phi=(1,2.5,5)$.
 The arc matrix may be asymmetric (one-way damage).
-- With `reveal_prob=1`, the belief equals the true state (a dynamic MOOP).
-- With `reveal_prob<1`, a changed arc is reported only with that probability. Unobserved arcs follow
-  the Markov prediction $b\leftarrow bP$, and an arc a truck has driven reveals its true state.
-  This is the minimal POMDP the spec §4.8 asks for.
+- With `reveal_prob=1` and `obs_accuracy=1`, the belief equals the true state (a dynamic MOOP).
+- Otherwise the problem is a **POMDP**:
+  - each changed road is reported with probability `reveal_prob`;
+  - a report is correct with probability `obs_accuracy`, otherwise it names a wrong state;
+  - the planner predicts every road's belief one epoch forward with the Markov matrix, then
+    applies **Bayes' rule** to each report;
+  - a road a truck has driven reveals its true state.
+- Surge demand is reported with relative noise `demand_noise`. The planner keeps a Gaussian belief
+  until a truck reaches the cluster, and checks capacity and battery at mean + 1 sd.
+- **How the planner reads the belief** (`planner=`):
+  - `oracle`: knows the truth (upper bound);
+  - `naive`: trusts every report;
+  - `belief`: expected travel times;
+  - `belief_cc`: belief plus the proposal's **chance constraint**. A road that is usable with
+    probability below θ = 0.8 is planned as a detour.
 
 The planner optimizes on the belief, while the simulator executes on the truth.
 
@@ -72,9 +88,16 @@ $e_{ij}=t'_{ij}[p(v_d,\ell_j)+p(v_d,0)]\le E(1-\rho)$.
 - Parameters are in each scenario's `drone_energy` block; details are in
   [`docs/FORMULATION.md`](docs/FORMULATION.md) §5.2b.
 
-**Recourse: all demand is met when possible** (`create_residual_jobs`, `src/dynamic_sim.py`).
-- When a surge hits a cluster whose satellite was already reached (after or during delivery), or
-  a truck ran short of goods, the missing amount becomes a **re-delivery job**.
+**Demand rule** (`admissible_surges`). A cluster's demand may only grow **before or during** its
+service:
+- a requested surge is **dropped** if the cluster's truck has already left;
+- it is **capped** at the spare capacity of the truck planned to serve that cluster;
+- so the current plan always stays capacity-feasible and no new trips are ever needed.
+
+**Recourse** (`create_residual_jobs`, `src/dynamic_sim.py`).
+- When a surge arrives while the truck is still parked at the satellite (drones flying), or a
+  truck ran short because the demand was observed with noise, the missing amount becomes a
+  **re-delivery job**.
 - A job is a route stop: a truck with goods left drives to a **host** satellite within battery
   range of the cluster and flies the extra wave(s). If the truck is still parked at that
   satellite, the job is just an extra wave there, with no extra driving.
@@ -104,11 +127,16 @@ values are comparable across epochs (guide §3.4):
 
 All three strategies share the same t=0 plan, so differences come only from how they react.
 
-**DRL hook.** `drl_state()` returns the spec's state vector (eq. 10): $[c_1..c_K, |A|/A_{max},
-u_D, u_V, r_{unmet}, r_{uncertain}]$. The selector interface is `select(state) -> operator`,
-`update(op, reward)`. The present `AdaptiveSelector` is an ALNS roulette and serves as the
-"adaptive but no DRL" baseline (spec §8.3). A DQN only has to implement the same two methods. The
-paired warm-vs-cold HV is a ready-made reward signal for spec eq. 12.
+**DRL operator controller** (`src/drl_selector.py`, the "DRL" of SR-DRL-DMOEA).
+- A **Double DQN** picks which of the 9 search operators to apply, one decision per segment of 10
+  moves.
+- **State:** a 23-feature vector (spec eq. 10): route disruption $c_k$, fleet and drone load,
+  share of uncertain roads, search progress, recent success rates, and the last operator.
+- **Reward:** new best / improved / new Pareto point, the improvement part of spec eq. 12.
+- **Training:** on 14 training instances that are not in the test benchmark
+  (`scripts/train_drl_selector.py`); evaluated frozen.
+- **Baselines** (spec §8.3): `uniform` (random operator) and `adaptive` (ALNS roulette).
+- Select it with `--selector dqn`.
 
 ## 3. Verification
 
@@ -122,110 +150,145 @@ paired warm-vs-cold HV is a ready-made reward signal for spec eq. 12.
 
 ## 4. Benchmark results
 
-Setup (final results: speed+load battery model, re-delivery recourse, battery safeguards):
-12 instances (guide §5.1) × 4 scenarios × 3 seeds × {static, restart, warm}.
+All results below use the final model:
+- speed- and load-dependent battery;
+- the **demand rule** (surges only before or during service, capped by truck capacity);
+- re-delivery recourse;
+- 12 test instances (guide §5.1) × 4 scenarios × 3 seeds.
 
 **CPU budget per re-plan:**
 - 1.5 s for n ≤ 15, 3 s for n = 20, 5 s for n = 50;
 - the t=0 plan gets 2×.
 
-All values are *realized*: the final plan is executed on the true disrupted network. The tables
-show the mean change relative to the `static` baseline; negative is better.
+All values are *realized*: the final plan is executed on the true disrupted network.
 - `static` never re-plans, so it has no recourse.
-- f1 charges undelivered demand at $C_{ret}$, so unmet demand counts against a strategy.
+- f1 charges undelivered demand at $C_{ret}$.
 
-Raw data: `results/dynamic_*.csv`. Regenerate the tables with `scripts/summarize_dynamic.py`.
+Raw data: `results/dynamic_*.csv`; `scripts/summarize_dynamic.py` regenerates the benchmark
+tables.
 
 ### 4.0 Unmet demand
 
-| benchmark | strategy | runs with any unmet demand | mean unmet | worst run | re-delivery stops per run |
-|---|---|---|---|---|---|
-| single objective (144 runs) | static (no re-planning) | 96 (67%) | 1.69% | 5.60% | 0 |
-| | restart | **0** | **0.00%** | **0.00%** | 2.2 |
-| | warm | 1 | 0.00% | 0.44% | 2.2 |
-| tight deadline (48 runs) | static | 46 (96%) | 2.75% | 4.98% | 0 |
-| | restart | **0** | **0.00%** | **0.00%** | 5.1 |
-| | warm | 1 | 0.01% | 0.35% | 5.2 |
-| multi-objective (144 runs) | static | 101 (70%) | 1.83% | 5.45% | 0 |
-| | restart | 2 | 0.00% | 0.35% | 2.2 |
-| | warm | **0** | **0.00%** | **0.00%** | 2.2 |
+| benchmark | static: runs with unmet demand | static: mean / worst | restart & warm: runs with unmet demand |
+|---|---|---|---|
+| single objective (144 runs) | 77 (53%) | 0.90% / 3.39% | **0** |
+| tight deadline (48 runs) | 42 (88%) | 1.19% / 3.38% | **0** |
+| multi-objective (144 runs) | 86 (60%) | 1.15% / 3.75% | **0** |
 
-With recourse, re-planning delivers **all demand in 428 of 432 runs**. The 4 exceptions leave at
-most 0.44%. That is demand the active trucks could no longer carry: either the remaining fleet
-capacity ran out, or the only truck with goods left was already driving home. Without
-re-planning, two-thirds or more of the runs leave demand unserved.
+With the demand rule, surges only happen before or during service and always fit the serving
+truck. Re-planning therefore delivers **all demand in every run** (672 of 672). The `static`
+plan still misses the surges that arrive while its drones are already flying, because it never
+schedules the extra wave.
 
 ### 4.1 Single objective Z1, the paper's objective (`--mode so --weights 0,0,1`)
 
 Mean change vs. static, restart / warm (negative is better):
 
-| scale | Δf1 (prio.-weighted delivery) | ΔZ1 10% damage | ΔZ1 30% | ΔZ1 30% partial-obs | ΔZ1 50% |
+| scale | Δf1 | ΔZ1 10% damage | ΔZ1 30% | ΔZ1 30% partial-obs | ΔZ1 50% |
 |---|---|---|---|---|---|
-| small (n ≤ 9) | −2.8 / −2.8 | −1.94 / −1.94 | −3.32 / −3.32 | **+1.46 / +1.46** | −2.19 / −2.19 |
-| medium (n 11–13) | −3.3 / −3.2 | −2.69 / −2.51 | −5.50 / −4.86 | −3.89 / −3.74 | −4.85 / −4.96 |
-| large (n 20–50) | −5.3 / −5.4 | +0.32 / +0.09 | −1.51 / −1.33 | **+1.51 / +0.57** | −4.29 / −4.31 |
+| small (n ≤ 9) | −3.0 / −3.0 | −1.94 / −1.94 | −3.32 / −3.32 | −2.49 / −2.49 | −2.21 / −2.21 |
+| medium (n 11–13) | −1.2 / −1.1 | −2.25 / −2.12 | −5.01 / −4.63 | −0.49 / −0.47 | −4.15 / −3.88 |
+| large (n 20–50) | −3.3 / −3.5 | −0.75 / −0.69 | −2.18 / −2.00 | −0.72 / −0.62 | −4.95 / −5.03 |
 
-**Overall:** re-planning lowers realized f1 by about 3.8% and Z1 by about 2.2%, while delivering
-(almost) everything.
-
-**Costs and trade-offs:**
-- The extra re-delivery stops cost some fleet time. At 10% damage on large instances, Z1 is
-  slightly *higher* than static (+0.1–0.3%), because static simply leaves the surge undelivered.
-  f1, which charges unmet demand, still improves by about 4%.
-- Optimizing Z1 alone worsens the equity spread f2 (+3.4% / +4.5%). This is the trade-off the MO
-  formulation is for.
-- Under **partial observability**, re-planning on the *belief* is worse for Z1 than not
-  re-planning: +1.5% on small and +0.6–1.5% on large instances. The Markov prediction expects
-  degradation everywhere, which pushes the planner to avoid roads that are in fact open. This is
-  a concrete argument for the spec's observation / exploration design (spec §4.8).
+- **Overall:** re-planning lowers realized Z1 by about 2.5% (up to 5% at 50% damage) and f1 by
+  about 2.5%, while delivering everything.
+- **Equity cost:** optimizing Z1 alone worsens the equity spread f2 (+6–7%). This is the
+  trade-off the MO formulation is for.
+- **Partial observability:** re-planning now helps in every scale (−0.5% to −2.5%). The belief
+  is no longer pessimistically "aged" at dispatch time, when the network has just been surveyed.
 
 **Tight re-planning deadline** (0.25 s per epoch, n = 20 and 50; `results/dynamic_so_z1_tight.csv`):
 
 | | restart | warm |
 |---|---|---|
-| mean Δf1 vs static | −3.33% | **−5.32%** |
-| mean ΔZ1 vs static | +0.63% | **−1.55%** |
-| mean Δf2 vs static | +14.1% | **+0.6%** |
-| ΔZ1 at 50% damage | −4.06% | **−4.95%** |
-| runs with Z1 better than static | 41.7% | **54.2%** |
-| warm beats restart on Z1 (paired) | — | **66.7%** of runs (tie 8.3%) |
+| mean Δf1 vs static | −3.29% | **−3.48%** |
+| mean ΔZ1 vs static | −2.45% | **−2.65%** |
+| mean Δf2 vs static | +0.2% | **−4.6%** |
+| ΔZ1 at 50% damage | **−6.18%** | −5.93% |
+| runs with Z1 better than static | 72.9% | **77.1%** |
+| warm beats restart on Z1 (paired) | — | **64.6%** of runs (tie 8.3%) |
 
 With a generous budget, cold restart and warm start mostly end up equal: warm is strictly better
-in 15% of runs and tied in 69%. Warm start, memory and segment focus pay off **when the
-re-planning deadline is tight**, where warm is clearly better on all three objectives. That is the
-regime the spec's $r_{late\_decision}$ penalty targets, and it is where a learned operator
-controller has something to win.
+in 9% of runs and tied in 76%. Warm start, memory and segment focus pay off **when the
+re-planning deadline is tight**.
 
 ### 4.2 Multi-objective (`--mode mo`, commit = equal-weight point of the archive)
 
-| | Δf1 | Δf2 | Δf3 (Z1) | runs with unmet demand |
-|---|---|---|---|---|
-| static | — | — | — | 70% (mean 1.83%) |
-| restart | −4.44% | −4.21% | **−0.75%** | 2 runs (max 0.35%) |
-| warm | **−4.64%** | **−5.05%** | −0.67% | **0** |
+| | Δf1 | Δf2 | Δf3 (Z1) |
+|---|---|---|---|
+| restart | −3.93% | **−6.18%** | **−1.13%** |
+| warm | **−4.07%** | −6.09% | −0.95% |
 
-**Paired hypervolume.** At each epoch, the warm strategy's residual problem is also solved cold
-with the same budget. HV is normalized by the union of both archives, with reference point
-1.1³:
+**Paired hypervolume** (warm vs. cold on identical residual problems, same budget):
 
 | epoch | scale | HV warm | HV cold | warm better | tie |
 |---|---|---|---|---|---|
-| 1 | large | 0.902 | 0.903 | 52% | 0% |
-| 1 | medium | **0.636** | 0.588 | 29% | 56% |
-| 1 | small | 0.592 | 0.588 | 8% | 81% |
-| 2 | large | **0.959** | 0.910 | 42% | 8% |
-| 2 | medium | 0.585 | 0.585 | 4% | 85% |
-| 2 | small | 0.961 | 0.961 | 2% | 96% |
+| 1 | large | 0.884 | 0.886 | 54% | 2% |
+| 1 | medium | **0.651** | 0.567 | 33% | 50% |
+| 1 | small | 0.609 | 0.606 | 10% | 79% |
+| 2 | large | **0.828** | 0.813 | 42% | 25% |
+| 2 | medium | 0.691 | 0.695 | 4% | 83% |
+| 2 | small | 0.968 | 0.969 | 2% | 94% |
 
-- **Large instances.** Warm and cold are level after the first event; warm wins slightly more
-  often, but the mean HV is the same. After the second event warm's front is clearly better (0.959
-  vs 0.910), when the memory carried over from earlier epochs has more to contribute.
-- **Small instances.** Both reach the same front.
+Memory gives a better front on medium instances after the first event and on large instances
+after the second. Otherwise warm and cold are level.
 
-**Battery.** A verification sweep over every instance × scenario × strategy (144 closed-loop runs,
-final code including recourse) found **no** sortie over the battery limit; the maximum use was
-99.9% of usable energy. Re-delivery sorties use the same constraint, and at execution the drones
-fly extra, lighter waves if a surge hits a pairing that was already locked.
+### 4.3 POMDP: using noisy, partial observations (`results/dynamic_pomdp.csv`)
+
+**Setup** (`scripts/run_pomdp_experiment.py`):
+- **Road reports:** a changed road is reported with probability 0.6, and a report is correct
+  with probability 0.8.
+- **Demand reports:** surge demand is reported with 15% noise.
+- **Runs:** 12 instances × {30%, 50% damage} × 3 seeds, warm strategy, Z1 objective, same budget
+  for every planner (288 runs).
+
+Mean gap to the `oracle` planner, which knows the truth:
+
+| planner | ΔZ1 | Δf1 | Δf2 | runs with unmet demand |
+|---|---|---|---|---|
+| naive (trusts reports) | +3.76% | +1.04% | +8.9% | 1 (0.25%) |
+| **belief** (Bayes, expected times) | **+3.04%** | **−0.46%** | **+1.9%** | 0 |
+| belief_cc (chance constraint θ = 0.8) | +3.65% | −0.07% | +5.0% | 0 |
+
+- **Cost of imperfect information:** about 3–4% Z1 compared with full information.
+- **Belief vs. naive:** the **Bayesian belief** is the best way to use the reports on average. It
+  is much fairer (f2 +1.9% vs +8.9%), but on Z1 the difference from `naive` is not significant
+  (Wilcoxon p = 0.87).
+- **Where belief beats naive:** it gains most on small and medium instances (gap 1.4% / 3.3% vs
+  3.4% / 4.4%). On large instances `naive` is slightly better (3.5% vs 4.4%), because the Markov
+  prediction makes every unreported road look a little worse.
+- **Demand noise:** the only run with unmet demand used the `naive` planner, which plans with the
+  reported demand alone. The belief planners check capacity at mean + 1 sd and had none.
+- **The chance constraint does not pay off** in this model. It is significantly worse than plain
+  belief (+0.6% Z1, p = 0.009). Closed roads are modelled as 5× detours, not as blocked roads, so
+  avoiding a merely *uncertain* road costs more than the risk it removes. It would matter if
+  closures could cut a satellite off.
+
+### 4.4 DRL operator controller (`results/dynamic_selectors.csv`)
+
+**Setup** (`scripts/run_selector_experiment.py`):
+- **Training:** the Double DQN was trained for 30 min (1.15 M decisions) on the 14 training
+  instances.
+- **Paired test:** on every residual problem of 12 test instances × 4 scenarios × 2 seeds × 3
+  epochs, `uniform`, `adaptive` and `dqn` each solved the **same** problem. They started from the
+  same solution with the same seed and the same CPU budget (576 paired problems per budget).
+
+| budget per re-plan | DQN vs adaptive | DQN vs uniform | adaptive vs uniform |
+|---|---|---|---|
+| 0.25 s | win 21% / loss 24% / tie 55%; mean −0.03% (p = 0.11) | win 19% / loss 23%; −0.00% (p = 0.23) | win 17% / loss 22%; +0.04% (p = 0.37) |
+| 1.0 s | win 16% / loss 24% / tie 60%; mean **+0.07%** (p = 0.025) | win 17% / loss 23%; +0.01% (p = 0.18) | win 16% / loss 21%; −0.06% (p = 0.64) |
+
+**Honest conclusion: the learned controller does not beat the simple baselines yet.**
+- At 0.25 s none of the three differs significantly from the others.
+- At 1 s the DQN is very slightly worse than the adaptive roulette.
+- Most residual problems end in a **tie** (55–62%): after an event they are small, so every
+  operator mix finds the same solution. Operator choice can only matter on the larger ones
+  (n ≥ 20), and even there the differences are within ±0.2%.
+- This matches the proposal's own risk analysis: the value of DRL has to be shown, not assumed.
+  The next steps in §6 list what would give it more room.
+
+**Battery.** In all 288 POMDP runs the highest sortie energy was 99.9% of usable battery: no
+sortie exceeded it.
 
 ## 5. Review of the guide: what changed and why
 
@@ -266,18 +329,20 @@ fly extra, lighter waves if a surge hits a pairing that was already locked.
 
 ## 6. Suggested next steps (toward SR-DRL-DMOEA)
 
-1. **Wider recourse.** Re-delivery is implemented (§2). Still missing: re-using trucks that are
-   already driving home with goods left, and a second trip from the depot when the remaining fleet
-   capacity is not enough.
-2. **Deprivation objective.** Replace $f_1$ by the spec's $\sum_i w_i h_i[T_i-r_i]^+$ with
-   $r_i$ = the event time for surge demand. The code already tracks the event times.
-3. **DRL controller.** Replace `AdaptiveSelector` by a Double/Dueling DQN over `drl_state()`. Use
-   the reward $\alpha\,\Delta HV - \beta\,\text{Eval}/\text{budget}$ (spec eq. 12), with the paired
-   warm/cold HV as $HV_{base}$.
-4. **MOEA population.** The archive and weight-cycling ILS here are a single-trajectory Pareto
-   approximation. Swapping in NSGA-II or MOEA/D over the same `ReplanProblem.evaluate` (giant-tour
-   plus σ encoding) gives the MOEA baselines of spec §8.3.
-5. **Exact reference.** A dynamic MILP / ε-constraint on M-08-05 and M-09-09 to validate the
+1. **Give the DRL controller more room.** It is implemented and trained, but it does not yet beat
+   the roulette (§4.4). Options:
+   - larger problems and more frequent events, so residual problems are not tiny;
+   - a richer action set, for example a destroy ratio as a continuous action (PPO/SAC, spec §7.3);
+   - a reward on hypervolume change rather than on single moves (spec eq. 12);
+   - a longer training run.
+2. **Better belief model.** The Markov prediction makes every unreported road look worse, which
+   hurts on large networks (§4.3). Learning the transition matrix from the reports would help, as
+   would drone reconnaissance of uncertain roads.
+3. **Blocked roads.** With true closures (a satellite can be cut off), the chance constraint
+   becomes meaningful. This needs the 1-to-many satellite service of guide §1.3, option 2.
+4. **Deprivation objective.** Replace $f_1$ by the spec's $\sum_i w_i h_i[T_i-r_i]^+$, with
+   $r_i$ = the event time for surge demand.
+5. **MOEA population.** Use NSGA-II or MOEA/D over the same `ReplanProblem.evaluate` as the spec
+   §8.3 baselines.
+6. **Exact reference.** A dynamic MILP / ε-constraint model on M-08-05 and M-09-09 to validate the
    empirical Pareto fronts (spec §8.4).
-6. **Earlier and more frequent events** (more epochs, e.g. every 0.25 h) to stress the
-   memory/warm-start components, which matter more when the residual problem is large.
