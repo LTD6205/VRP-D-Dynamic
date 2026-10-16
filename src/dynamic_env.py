@@ -132,22 +132,50 @@ def load_scenarios(path: str) -> Dict[str, Scenario]:
 # ============================================================
 
 class RoadNetwork:
+    """True road state + the planner's view of it (POMDP layer).
+
+    Observation model at an event (when reveal_prob < 1 or obs_accuracy < 1):
+      * prediction: every arc's belief is propagated one epoch, b <- b P (Markov);
+      * each arc whose TRUE state changed is reported with probability reveal_prob;
+        a report o is correct with probability obs_accuracy, otherwise one of the two
+        other states uniformly:  O(o | s) = acc if o == s else (1 - acc) / 2;
+      * Bayes update of the reported arcs:  b'(s) ∝ O(o | s) b(s);
+      * a truck that drives an arc observes its true state exactly.
+
+    The planner can read this view in four ways (planning_time(mode)):
+      oracle     true state (full information, upper bound)
+      naive      reports taken at face value, unreported arcs assumed unchanged
+      belief     expected time  E[t] = t0 * sum_s phi_s b(s)
+      belief_cc  belief + chance constraint of the proposal (slide 10): an arc whose
+                 probability of being usable  P(Open) + P(Degraded)  is below theta is
+                 planned as a detour (x5), i.e. routes avoid unreliable roads.
+    """
+
     def __init__(self, base_time: np.ndarray, transition: np.ndarray = DEFAULT_TRANSITION,
-                 reveal_prob: float = 1.0, rng: Optional[np.random.Generator] = None):
+                 reveal_prob: float = 1.0, rng: Optional[np.random.Generator] = None,
+                 obs_accuracy: float = 1.0):
         self.t0 = np.asarray(base_time, dtype=float)
         self.N = self.t0.shape[0]
         self.n = self.N - 2
         self.P = np.asarray(transition, dtype=float)
         self.reveal_prob = float(reveal_prob)
+        self.obs_accuracy = float(obs_accuracy)
         self.rng = rng if rng is not None else np.random.default_rng(0)
 
         self.true_state = np.zeros((self.N, self.N), dtype=int)
         self.belief = np.zeros((self.N, self.N, 3))
         self.belief[:, :, 0] = 1.0
+        self.naive_state = np.zeros((self.N, self.N), dtype=int)   # what a report-trusting planner believes
         # arcs whose current true state the planner knows exactly
         self.known = np.ones((self.N, self.N), dtype=bool)
         # (time, multiplier matrix) history of the true network, for departure-time lookups
         self.history: List[Tuple[float, np.ndarray]] = [(0.0, np.ones((self.N, self.N)))]
+        self.n_reports = 0
+        self.n_wrong_reports = 0
+
+    @property
+    def fully_observed(self) -> bool:
+        return self.reveal_prob >= 1.0 and self.obs_accuracy >= 1.0
 
     # ---- index mapping for event files ----
     def _matrix_arcs(self, u: int, v: int) -> List[Tuple[int, int]]:
@@ -167,33 +195,58 @@ class RoadNetwork:
                     changed.append((i, j))
         self.history.append((float(time), PHI[self.true_state].copy()))
 
-        if self.reveal_prob >= 1.0:
-            # full observability: belief == truth everywhere
+        if self.fully_observed or time <= 0.0:
+            # full observability (or dispatch time, when the network is surveyed): belief == truth
             self.belief[:] = 0.0
             ii, jj = np.indices(self.true_state.shape)
             self.belief[ii, jj, self.true_state] = 1.0
+            self.naive_state[:] = self.true_state
             self.known[:] = True
             return changed
 
-        # partial observability: unknown arcs drift by the Markov prediction ...
+        # partial / noisy observability: prediction for every arc ...
         self.known[:] = False
-        unk = ~self.known
-        self.belief[unk] = self.belief[unk] @ self.P
-        # ... and each changed arc is reported with probability reveal_prob
+        self.belief = self.belief @ self.P
+        # ... then a (possibly wrong) report for each changed arc with probability reveal_prob
+        acc = self.obs_accuracy
         for (i, j) in changed:
-            if self.rng.random() < self.reveal_prob:
-                self._set_known(i, j)
+            if self.rng.random() >= self.reveal_prob:
+                continue
+            s_true = self.true_state[i, j]
+            if self.rng.random() < acc:
+                o = s_true
+            else:
+                o = int(self.rng.choice([s for s in range(3) if s != s_true]))
+                self.n_wrong_reports += 1
+            self.n_reports += 1
+            like = np.where(np.arange(3) == o, acc, (1.0 - acc) / 2.0)
+            post = like * self.belief[i, j]
+            self.belief[i, j] = post / post.sum() if post.sum() > 0 else like / like.sum()
+            self.naive_state[i, j] = o
         return changed
 
     def _set_known(self, i: int, j: int) -> None:
         self.belief[i, j] = 0.0
         self.belief[i, j, self.true_state[i, j]] = 1.0
+        self.naive_state[i, j] = self.true_state[i, j]
         self.known[i, j] = True
 
     def observe_traversed(self, arcs: List[Tuple[int, int]]) -> None:
         """A truck that drove (i, j) reveals its current true state."""
         for (i, j) in arcs:
             self._set_known(i, j)
+
+    # ---- planner's view ----
+    def planning_time(self, mode: str = "belief", theta: float = 0.8) -> np.ndarray:
+        if mode == "oracle":
+            return self.t0 * PHI[self.true_state]
+        if mode == "naive":
+            return self.t0 * PHI[self.naive_state]
+        mult = self.belief @ PHI
+        if mode == "belief_cc":
+            usable = self.belief[:, :, 0] + self.belief[:, :, 1]
+            mult = np.where(usable < theta, PHI[2], mult)
+        return self.t0 * mult
 
     # ---- times ----
     def expected_multiplier(self) -> np.ndarray:
@@ -237,6 +290,17 @@ class DemandProcess:
         d, w = d.copy(), w.copy()
         for j, m in demand_mult.items():
             d[j - 1] = round(d[j - 1] * m)
+        for j, p in prio.items():
+            w[j - 1] = p
+        self.history.append((float(time), d, w))
+
+    def apply_increments(self, time: float, increments: Dict[int, float], prio: Dict[int, float]) -> None:
+        """Add absolute demand increments (centroid -> units) at `time`; used for surges after
+        the admissibility rule (see dynamic_sim.admissible_surges) has capped them."""
+        _, d, w = self.history[-1]
+        d, w = d.copy(), w.copy()
+        for j, inc in increments.items():
+            d[j - 1] += float(inc)
         for j, p in prio.items():
             w[j - 1] = p
         self.history.append((float(time), d, w))

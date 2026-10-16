@@ -74,7 +74,8 @@ OPERATORS = (
 class ReplanProblem:
     def __init__(self, snap: Snapshot, T: np.ndarray, tdm: np.ndarray, demand: np.ndarray,
                  priority: np.ndarray, Q: float, UP: float, battery, n: int,
-                 jobs: Optional[Dict[int, Job]] = None):
+                 jobs: Optional[Dict[int, Job]] = None,
+                 demand_sd: Optional[np.ndarray] = None, z: float = 0.0):
         self.snap = snap
         self.n = n
         self.vend = n + 1
@@ -83,6 +84,9 @@ class ReplanProblem:
         self.tdm_np = tdm
         self.tdm = tdm.tolist()
         self.d = [float(x) for x in demand]
+        # demand belief (POMDP): capacity and battery use mean + z * sd (robust), objectives use the mean
+        sd = np.zeros(len(self.d)) if demand_sd is None else np.asarray(demand_sd, dtype=float)
+        self.d_cap = [float(m + z * s_) for m, s_ in zip(self.d, sd)]
         self.w = [float(x) for x in priority]
         self.Q = Q
         self.UP = UP
@@ -98,8 +102,8 @@ class ReplanProblem:
         self.avail = {k: snap.trucks[k].avail_time for k in self.active}
 
         # battery-feasible satellite/centroid pairs at the CURRENT demand (load depends on demand)
-        self.energy = self.battery.energy_matrix(tdm, np.asarray(demand, dtype=float))
-        self.pair_ok = self.battery.pair_ok(tdm, np.asarray(demand, dtype=float))
+        self.energy = self.battery.energy_matrix(tdm, np.asarray(self.d_cap, dtype=float))
+        self.pair_ok = self.battery.pair_ok(tdm, np.asarray(self.d_cap, dtype=float))
 
         # ---- recourse jobs (residual demand) that still have to be delivered ----
         locked_jobs = getattr(snap, "locked_jobs", {}) or {}
@@ -127,7 +131,7 @@ class ReplanProblem:
             q = r.delivered if r.arrival <= snap.time + 1e-12 else self.d[r.centroid - 1]
             f1num += self.w[r.centroid - 1] * q * r.delivery
             if snap.trucks[r.truck].active:
-                used[r.truck] += q
+                used[r.truck] += r.delivered if r.arrival <= snap.time + 1e-12 else self.d_cap[r.centroid - 1]
         for j, r in locked_jobs.items():   # executed / committed re-deliveries (not in f2/f3, only f1 + load)
             q = r.delivered if r.arrival <= snap.time + 1e-12 else r.demand_at_arrival
             f1num += self.w[r.centroid - 1] * q * r.delivery
@@ -178,7 +182,7 @@ class ReplanProblem:
                 fly = tdm[s - 1][c]
                 f1 += w[c] * d[c] * (t + fly)
                 t += self.waves_c[c] * 2 * fly
-                load += d[c]
+                load += self.d_cap[c]
                 prev = s
             t += T[prev][vend]
             s_arr += t
@@ -188,7 +192,7 @@ class ReplanProblem:
         return viol, (f1 / self.D, spread, s_arr)
 
     def item_demand(self, s: int, sigma: Dict[int, int]) -> float:
-        return self.jobs[s][1] if s > self.n else self.d[sigma[s] - 1]
+        return self.jobs[s][1] if s > self.n else self.d_cap[sigma[s] - 1]
 
     def loc(self, s: int, hosts: Dict[int, int]) -> int:
         """Physical location of a route item (a job sits at its host satellite)."""
@@ -259,10 +263,13 @@ class UniformSelector:
     def select(self, state=None) -> str:
         return OPERATORS[int(self.rng.integers(len(OPERATORS)))]
 
-    def update(self, op: str, reward: float) -> None:
+    def update(self, op: str, reward: float, next_state=None, done: bool = False) -> None:
         pass
 
     def new_epoch(self, state=None) -> None:
+        pass
+
+    def end_episode(self) -> None:
         pass
 
 
@@ -285,7 +292,7 @@ class AdaptiveSelector(UniformSelector):
         p = self.weights / self.weights.sum()
         return OPERATORS[int(self.rng.choice(len(OPERATORS), p=p))]
 
-    def update(self, op: str, reward: float) -> None:
+    def update(self, op: str, reward: float, next_state=None, done: bool = False) -> None:
         i = self.idx[op]
         self.score[i] += reward
         self.uses[i] += 1
@@ -303,7 +310,11 @@ class AdaptiveSelector(UniformSelector):
         self.weights = 0.5 * self.weights + 0.5 * self.weights.mean()
 
 
-def make_selector(name: str, rng):
+def make_selector(name: str, rng, model_path: Optional[str] = None):
+    """uniform | adaptive | dqn (trained Double-DQN policy, see drl_selector.py)."""
+    if name == "dqn":
+        from drl_selector import DQNSelector
+        return DQNSelector.load(model_path or "models/dqn_selector.npz", rng, training=False)
     return AdaptiveSelector(rng) if name == "adaptive" else UniformSelector(rng)
 
 
@@ -365,6 +376,26 @@ class DynamicReoptimizer:
             self.focus = np.full(len(A), 1.0 / max(1, len(A)))
         self.scale = np.ones(3)
         self.wvec = np.array(cfg.weights if cfg.mode == "so" else cfg.commit_weights, dtype=float)
+        # epoch context for the DRL state (spec eq. 10)
+        fv = np.array([focus.get(k, 0.0) for k in A], dtype=float) if focus else np.zeros(1)
+        free_dem = sum(prob.d[c - 1] for c in prob.free_c) + sum(a for _, a in prob.jobs.values())
+        cap = max(1.0, sum(prob.cap.values()))
+        self.context = np.array([
+            float(fv.max()) if fv.size else 0.0, float(fv.mean()) if fv.size else 0.0,
+            len(prob.free) / max(1, prob.n), len(prob.free_jobs) / max(1, len(prob.free) + 1),
+            min(1.0, free_dem / cap),
+            float(np.mean([prob.d[c - 1] / prob.UP for c in prob.free_c])) if prob.free_c else 0.0,
+            float(getattr(prob, "uncertain", 0.0)),
+        ])
+
+    def search_state(self, t_frac, since, infeasible, gap, acc_rate, imp_rate, last_op) -> np.ndarray:
+        onehot = np.zeros(len(OPERATORS))
+        if last_op is not None:
+            onehot[last_op] = 1.0
+        dyn = np.array([t_frac, min(1.0, since / max(1, self.cfg.phase_patience)), float(infeasible),
+                        min(1.0, max(0.0, gap)), acc_rate, imp_rate,
+                        len(self.archive) / max(1, self.archive.max_size)])
+        return np.concatenate([self.context, dyn, onehot])
 
     # ---------- scalar ----------
     def score(self, objs) -> float:
@@ -685,9 +716,27 @@ class DynamicReoptimizer:
 
         it, since, phase = 0, 0, 0
         best_key = cur_key
+        wants_state = getattr(self.sel, "name", "") == "dqn"
+        op_index = {o: i for i, o in enumerate(OPERATORS)}
+        acc_rate = imp_rate = 0.0
+        last_op = None
+
+        def _state():
+            el = (time.process_time() - st) / max(cfg.time_limit, 1e-9)
+            gap = (cur_key[1] - best_key[1]) / max(abs(best_key[1]), 1e-9) if cur_key[0] == best_key[0] else 1.0
+            return self.search_state(min(1.0, el), since, cur_key[0] > 0, gap, acc_rate, imp_rate, last_op)
+
+        hold = int(getattr(self.sel, "hold", 1)) if wants_state else 1
+        seg_reward, seg_left, op = 0.0, 0, None
         while time.process_time() - st < cfg.time_limit:
             it += 1
-            op = self.sel.select()
+            if wants_state:
+                # DRL: one decision per segment of `hold` moves (macro action), reward summed
+                if seg_left == 0:
+                    op = self.sel.select(_state())
+                    seg_left, seg_reward = hold, 0.0
+            else:
+                op = self.sel.select(None)
             cand = self.apply(op, cur)
             reward = 0.0
             if cand is not None:
@@ -707,7 +756,18 @@ class DynamicReoptimizer:
                     since += 1
             else:
                 since += 1
-            self.sel.update(op, reward)
+            acc_rate = 0.98 * acc_rate + 0.02 * float(reward >= 2.0 or (cand is not None and kk <= cur_key))
+            imp_rate = 0.98 * imp_rate + 0.02 * float(reward >= 5.0)
+            last_op = op_index[op]
+            if wants_state:
+                seg_reward += reward
+                seg_left -= 1
+                if seg_left == 0 and getattr(self.sel, "training", False):
+                    self.sel.update(op, seg_reward, _state(), done=time.process_time() - st >= cfg.time_limit)
+                elif seg_left == 0:
+                    self.sel.update(op, seg_reward)
+            else:
+                self.sel.update(op, reward)
 
             if it % cfg.local_search_freq == 0:
                 cur, k2 = self.local_search(cur, cur_key)
@@ -743,6 +803,7 @@ class DynamicReoptimizer:
                 cur_key = best_key = self.key(v, o)
                 since = 0
 
+        self.sel.end_episode()
         # ---- choose the plan to commit ----
         if len(self.archive):
             cw = cfg.weights if cfg.mode == "so" else cfg.commit_weights

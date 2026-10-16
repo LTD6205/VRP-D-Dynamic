@@ -1,0 +1,3461 @@
+{
+ "damage_10pct": {
+  "base_instance": "M-20-20-70-1.txt",
+  "num_satellites": 20,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 1.0,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 19,
+  "initial_priorities": {
+   "1": 0.72,
+   "2": 0.81,
+   "3": 0.77,
+   "4": 0.58,
+   "5": 0.61,
+   "6": 0.81,
+   "7": 0.5,
+   "8": 0.79,
+   "9": 0.78,
+   "10": 0.66,
+   "11": 0.61,
+   "12": 0.6,
+   "13": 0.59,
+   "14": 0.66,
+   "15": 0.68,
+   "16": 0.69,
+   "17": 0.85,
+   "18": 0.78,
+   "19": 0.72,
+   "20": 0.85
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 1.15,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 18,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 19,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "9": 1.18,
+     "15": 1.18,
+     "4": 1.18
+    },
+    "priority_updates": {
+     "9": 1.0,
+     "15": 1.0,
+     "4": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 1.958,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 19,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 13,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 19,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "18": 1.2,
+     "12": 1.29,
+     "1": 1.24
+    },
+    "priority_updates": {
+     "18": 0.95,
+     "12": 0.95,
+     "1": 0.95
+    }
+   }
+  ]
+ },
+ "damage_30pct": {
+  "base_instance": "M-20-20-70-1.txt",
+  "num_satellites": 20,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 1.0,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 20,
+  "initial_priorities": {
+   "1": 0.72,
+   "2": 0.81,
+   "3": 0.77,
+   "4": 0.58,
+   "5": 0.61,
+   "6": 0.81,
+   "7": 0.5,
+   "8": 0.79,
+   "9": 0.78,
+   "10": 0.66,
+   "11": 0.61,
+   "12": 0.6,
+   "13": 0.59,
+   "14": 0.66,
+   "15": 0.68,
+   "16": 0.69,
+   "17": 0.85,
+   "18": 0.78,
+   "19": 0.72,
+   "20": 0.85
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 1.15,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 7,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 13,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 15,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 19,
+      "state": "degraded"
+     }
+    ],
+    "demand_multipliers": {
+     "18": 1.1,
+     "17": 1.16,
+     "6": 1.14
+    },
+    "priority_updates": {
+     "18": 1.0,
+     "17": 1.0,
+     "6": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 1.958,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 18,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 15,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 19,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "12": 1.3,
+     "1": 1.23,
+     "20": 1.28
+    },
+    "priority_updates": {
+     "12": 0.95,
+     "1": 0.95,
+     "20": 0.95
+    }
+   }
+  ]
+ },
+ "damage_50pct": {
+  "base_instance": "M-20-20-70-1.txt",
+  "num_satellites": 20,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 1.0,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 20,
+  "initial_priorities": {
+   "1": 0.72,
+   "2": 0.81,
+   "3": 0.77,
+   "4": 0.58,
+   "5": 0.61,
+   "6": 0.81,
+   "7": 0.5,
+   "8": 0.79,
+   "9": 0.78,
+   "10": 0.66,
+   "11": 0.61,
+   "12": 0.6,
+   "13": 0.59,
+   "14": 0.66,
+   "15": 0.68,
+   "16": 0.69,
+   "17": 0.85,
+   "18": 0.78,
+   "19": 0.72,
+   "20": 0.85
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 1.15,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 9,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 13,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 15,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 2,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "18": 1.14,
+     "17": 1.13,
+     "6": 1.16
+    },
+    "priority_updates": {
+     "18": 1.0,
+     "17": 1.0,
+     "6": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 1.958,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 3,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 15,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 13,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 14,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 14,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "12": 1.29,
+     "1": 1.2,
+     "20": 1.27
+    },
+    "priority_updates": {
+     "12": 0.95,
+     "1": 0.95,
+     "20": 0.95
+    }
+   }
+  ]
+ },
+ "damage_30pct_partial": {
+  "base_instance": "M-20-20-70-1.txt",
+  "num_satellites": 20,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 0.6,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 19,
+  "initial_priorities": {
+   "1": 0.72,
+   "2": 0.81,
+   "3": 0.77,
+   "4": 0.58,
+   "5": 0.61,
+   "6": 0.81,
+   "7": 0.5,
+   "8": 0.79,
+   "9": 0.78,
+   "10": 0.66,
+   "11": 0.61,
+   "12": 0.6,
+   "13": 0.59,
+   "14": 0.66,
+   "15": 0.68,
+   "16": 0.69,
+   "17": 0.85,
+   "18": 0.78,
+   "19": 0.72,
+   "20": 0.85
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 1.15,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 19,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 14,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 19,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 20,
+      "state": "closed_detour"
+     },
+     {
+      "u": 19,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 20,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 16,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 16,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "9": 1.14,
+     "15": 1.1,
+     "4": 1.13
+    },
+    "priority_updates": {
+     "9": 1.0,
+     "15": 1.0,
+     "4": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 1.958,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 17,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 13,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 16,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 17,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 17,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 18,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 18,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 20,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 16,
+      "state": "degraded"
+     },
+     {
+      "u": 16,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 15,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 14,
+      "state": "degraded"
+     },
+     {
+      "u": 14,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 13,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 20,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 15,
+      "state": "degraded"
+     },
+     {
+      "u": 15,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 13,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 18,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 18,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 19,
+      "v": 15,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 19,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 17,
+      "state": "closed_detour"
+     },
+     {
+      "u": 17,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 17,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "18": 1.21,
+     "12": 1.2,
+     "1": 1.28
+    },
+    "priority_updates": {
+     "18": 0.95,
+     "12": 0.95,
+     "1": 0.95
+    }
+   }
+  ]
+ },
+ "_meta": {
+  "seed": 7,
+  "baseline_arrival_quantiles": [
+   1.15,
+   1.958
+  ],
+  "baseline_first_last_arrival": [
+   0.5440450000000001,
+   2.869911078173866
+  ],
+  "battery_note": "default battery; 22% of satellite-centroid pairs battery-infeasible at base demand",
+  "n_arcs": 420
+ }
+}

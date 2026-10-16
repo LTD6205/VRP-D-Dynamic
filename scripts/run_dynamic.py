@@ -10,6 +10,9 @@ Options:
     --mode        mo (Pareto archive, default) | so (single objective, --weights)
     --weights     weights for so mode / commit weights for mo mode, e.g. 0,0,1 (= paper's Z1)
     --selector    adaptive (ALNS roulette, default) | uniform
+    --planner     oracle | naive | belief | belief_cc (POMDP: how observations are used)
+    --reveal / --accuracy / --demand-noise   observation model (POMDP)
+    --selector    adaptive | uniform | dqn (trained DRL controller)
     --paired-hv   at every epoch also solve the warm strategy's residual problem cold
                   and report the hypervolume of both archives
     --output      write full JSON (metrics, per-epoch records, final plan)
@@ -36,7 +39,14 @@ def main():
     ap.add_argument("--time0", type=float, default=None, help="CPU seconds for the t=0 plan (default 2x --time)")
     ap.add_argument("--mode", choices=("mo", "so"), default="mo")
     ap.add_argument("--weights", default=None)
-    ap.add_argument("--selector", choices=("adaptive", "uniform"), default="adaptive")
+    ap.add_argument("--selector", choices=("adaptive", "uniform", "dqn"), default="adaptive")
+    ap.add_argument("--selector-model", default="models/dqn_selector.npz", help="trained DQN weights")
+    ap.add_argument("--planner", choices=("oracle", "naive", "belief", "belief_cc"), default="belief",
+                    help="how the planner reads (partial/noisy) observations")
+    ap.add_argument("--reveal", type=float, default=None, help="probability a changed road is reported")
+    ap.add_argument("--accuracy", type=float, default=None, help="probability a road report is correct")
+    ap.add_argument("--demand-noise", type=float, default=0.0, help="relative s.d. of reported surge demand")
+    ap.add_argument("--theta", type=float, default=0.8, help="chance-constraint threshold (belief_cc)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--paired-hv", action="store_true")
     ap.add_argument("--no-recourse", action="store_true",
@@ -60,7 +70,9 @@ def main():
 
     out = run_closed_loop(world, args.strategies.split(","), cfg0, cfg, seed=args.seed,
                           selector=args.selector, paired_hv_check=args.paired_hv, verbose=args.verbose,
-                          recourse=not args.no_recourse)
+                          recourse=not args.no_recourse, planner=args.planner, theta=args.theta,
+                          reveal_prob=args.reveal, obs_accuracy=args.accuracy,
+                          demand_noise=args.demand_noise, selector_model=args.selector_model)
     print(f"\n{name} / {args.scenario}  (realized after executing the whole horizon)")
     print(f"{'strategy':10s} {'f1 prio-wtd delivery':>21s} {'f2 spread':>10s} {'f3 Z1':>9s} "
           f"{'C_del':>7s} {'unmet%':>7s} {'re-deliv':>8s} {'replan s':>9s}")

@@ -216,6 +216,60 @@ class Simulator:
         return Snapshot(t_event, trucks, locked, free_sats, free_c, traversed, locked_jobs)
 
 
+def admissible_surges(plan: Plan, tl: Timeline, t_event: float, multipliers: Dict[int, float],
+                      demand_now: np.ndarray, Q: float) -> Tuple[Dict[int, float], dict]:
+    """Demand rule: a cluster's demand may only grow BEFORE or DURING its service, and never
+    beyond what the truck currently planned to serve it can still carry.
+
+    * cluster whose satellite truck has already LEFT (arrival + drone waiting <= t_event):
+      surge dropped (demand cannot change after service);
+    * satellite not yet reached, or truck parked there (drones flying): surge allowed;
+    * the increase is capped at the remaining capacity of that truck,
+          slack_k = Q - (delivered at visited stops + planned demand of its other stops + jobs),
+      reduced as surges are granted, so the current plan always stays capacity-feasible.
+
+    Returns ({centroid: granted increment (integer units)}, stats)."""
+    sat_of = {c: s for s, c in plan.sigma.items()}
+    truck_of, load = {}, {}
+    for k, route in plan.routes.items():
+        L = 0.0
+        for item in route:
+            if item in plan.jobs:
+                L += plan.jobs[item].amount
+                continue
+            truck_of[item] = k
+            rec = tl.sats.get(item)
+            if rec is not None and rec.arrival <= t_event + 1e-12:
+                L += rec.delivered
+            else:
+                L += float(demand_now[plan.sigma[item] - 1])
+        load[k] = L
+    slack = {k: Q - L for k, L in load.items()}
+    granted: Dict[int, float] = {}
+    st = dict(requested=0.0, granted=0.0, dropped_after_service=0, capped=0, during_service=0)
+    for c, m in multipliers.items():
+        inc = float(demand_now[c - 1]) * (float(m) - 1.0)
+        if inc <= 0:
+            continue
+        st["requested"] += inc
+        s = sat_of[c]
+        rec = tl.sats.get(s)
+        if rec is not None and rec.arrival + rec.wait <= t_event + 1e-12:
+            st["dropped_after_service"] += 1                       # truck already left
+            continue
+        if rec is not None and rec.arrival <= t_event + 1e-12:
+            st["during_service"] += 1                              # extra wave while parked
+        k = truck_of[s]
+        g = float(np.floor(min(inc, max(0.0, slack[k]))))
+        if g < inc - 1e-9:
+            st["capped"] += 1
+        if g > 0:
+            granted[c] = g
+            slack[k] -= g
+            st["granted"] += g
+    return granted, st
+
+
 def create_residual_jobs(plan: Plan, tl: Timeline, snap: Snapshot, demand: DemandProcess,
                          next_id: int) -> Tuple[Dict[int, Job], int]:
     """Recourse: after the demand update at snap.time, every cluster whose satellite has

@@ -229,11 +229,15 @@ def main():
     ap.add_argument("--all-main", action="store_true")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", default="instances/dynamic_events")
+    ap.add_argument("--instances", default=None,
+                    help="comma list of sub/name, e.g. main/M-10-07-60-1,large/M-20-20-50-1 (overrides the subset)")
     args = ap.parse_args()
     root = Path(__file__).resolve().parent.parent
     os.chdir(root)  # frozen clusters are looked up relative to the repo root
     targets = SUBSET
-    if args.all_main:
+    if args.instances:
+        targets = [tuple(x.split("/")) for x in args.instances.split(",")]
+    elif args.all_main:
         targets = [("main", p.stem) for p in sorted((root / "instances/main").glob("*.txt"))]
     for sub, stem in targets:
         p = root / "instances" / sub / f"{stem}.txt"

@@ -19,10 +19,15 @@ and back. Each satellite serves exactly one cluster: this is the satellite→clu
 After dispatch, roads degrade or close, demand surges and priorities change. These changes are
 revealed at **event epochs** $t_1, t_2, \dots$. At each epoch, everything already executed is
 frozen and only the **residual problem** is re-optimized: the satellites not yet reached, starting
-from each truck's current position. If a surge hits a cluster that has already been served, a
-**re-delivery job** is created and a truck with spare goods flies the extra amount from a
-satellite in drone range (§5.4b), so all demand is met whenever the fleet still has the goods.
-Three objectives are traded off: priority-weighted delivery time, equity, and total fleet time.
+from each truck's current position. A cluster's demand can only grow **before or during** its
+service, and never beyond what its truck can still carry (§5.4a). A surge that arrives while the
+drones are still flying is delivered as an **extra drone wave** (§5.4b).
+
+The planner does not see the world perfectly. Road reports are partial and may be wrong, and
+surge sizes are reported with noise. It plans on a **belief** that it updates with Bayes' rule,
+which makes the problem a POMDP (§5.1, §5.4c). An operator-selection policy learned with deep
+reinforcement learning drives the search (§5.8). Three objectives are traded off:
+priority-weighted delivery time, equity, and total fleet time.
 
 ---
 
@@ -55,6 +60,9 @@ Three objectives are traded off: priority-weighted delivery time, equity, and to
 | $\mathcal P(s'\mid s)$ | per-epoch Markov transition of road states (belief prediction) | `DEFAULT_TRANSITION` |
 | $\rho_{obs}$ | probability that a changed road is reported (`reveal_prob`) | 1.0 (full) or 0.6 (partial) |
 | $s_{ij}(t)$ | **true** state of arc $(i,j)$ (hidden from the planner if $\rho_{obs}<1$) | `RoadNetwork.true_state` |
+| $\kappa$ | accuracy of a road report | 1.0 (benchmark), 0.8 (POMDP experiment) |
+| $\theta$ | chance-constraint threshold of the `belief_cc` planner | 0.8 |
+| $\sigma_d$, $z$ | relative noise of reported surge demand; robustness factor for capacity/battery | 0 (benchmark), 0.15 (POMDP experiment); $z=1$ |
 | $b_{ij}^t(s)$ | planner's **belief** over the state of arc $(i,j)$ | `RoadNetwork.belief` |
 | $d_j(t)$ | demand of cluster $j$ (changes with surges) | `DemandProcess` |
 | $w_j(t)\in[0,1]$ | priority of cluster $j$ | `initial_priorities` + updates |
@@ -110,15 +118,28 @@ This is the travel time the **planner** uses: the baseline time scaled by the ex
 under its belief. A "closed" road is a 5× detour, never an infinite cost, so every satellite stays
 reachable.
 
-**Belief update at an event:**
+**Observation model and belief update (POMDP, `RoadNetwork`).** At each event:
 
-- If $\rho_{obs}=1$: $b_{ij}^t=\mathbb 1[s=s_{ij}(t)]$. The planner knows every road state.
-- If $\rho_{obs}<1$:
-  - every arc's belief is first predicted forward with $b\leftarrow b\,\mathcal P$ (roads may have
-    degraded unseen);
-  - each road that actually changed is then reported with probability $\rho_{obs}$, and its belief is
-    set to the true state;
-  - a road a truck has driven also reveals its true state.
+1. **Prediction.** Every arc's belief moves one epoch forward, $b\leftarrow b\,\mathcal P$, since
+   roads may have degraded unseen.
+2. **Reports.** Each arc whose true state changed is reported with probability $\rho_{obs}$. A
+   report $o$ is correct with probability $\kappa$ (the observation accuracy), otherwise it names
+   one of the two other states:
+   $$O(o\mid s)=\begin{cases}\kappa & o=s\\ (1-\kappa)/2 & o\neq s\end{cases}$$
+3. **Bayes update** of every reported arc: $b'(s)\propto O(o\mid s)\,b(s)$.
+4. **Traversal.** A truck that has driven an arc observes its true state exactly.
+
+At $t=0$ the network is surveyed, so the belief equals the truth. With $\rho_{obs}=\kappa=1$ the
+belief is the truth at every event, which gives the fully observed dynamic problem.
+
+**How the planner reads the belief** (`--planner`, `RoadNetwork.planning_time`):
+
+| mode | planning travel time | meaning |
+|---|---|---|
+| `oracle` | $t^0_{ij}\,\phi_{s_{ij}(t)}$ | knows the true states (upper bound) |
+| `naive` | $t^0_{ij}\,\phi_{o_{ij}}$ | trusts every report; unreported roads assumed unchanged |
+| `belief` | $\mathbb E[t_{ij}]=t^0_{ij}\sum_s\phi_s b_{ij}(s)$ | expected time under the Bayesian belief |
+| `belief_cc` | $t^0_{ij}\,\phi_{Detour}$ if $b_{ij}(Open)+b_{ij}(Degraded)<\theta$, else $\mathbb E[t_{ij}]$ | **chance constraint** of the proposal (slide 10): a road that is usable with probability below $\theta$ (0.8) is planned as a detour, so routes avoid unreliable roads |
 
 ### 5.2 Drone service at a satellite (`dynamic_sim.py`, `dynamic_solver.py`)
 
@@ -222,6 +243,27 @@ $$Q_k(t)=Q-\sum_{i\in L(t)\cap r_k}q_i ,$$
 where $q_i$ is the delivered amount if $i$ was already reached, or the current demand if $i$ is
 only a committed target.
 
+### 5.4a Demand rule: surges only before or during service (`admissible_surges`)
+
+An event file gives a *requested* surge multiplier $m_c$ for some clusters. The environment
+applies it only if it is admissible for the plan being executed:
+
+| status of cluster $c$'s satellite at $t_e$ | surge |
+|---|---|
+| truck has **left** ($a_s+w_s\le t_e$) | **dropped**: demand cannot change after service |
+| truck **parked**, drones flying ($a_s\le t_e<a_s+w_s$) | allowed; served as an extra drone wave (§5.4b) |
+| not reached yet | allowed; delivered at arrival |
+
+The increase is capped by the remaining capacity of the truck $k$ currently planned to serve $c$:
+
+$$\Delta d_c=\Big\lfloor\min\big(d_c(t_e)\,(m_c-1),\ \text{slack}_k\big)\Big\rfloor,\qquad
+\text{slack}_k=Q-\Big(\sum_{\text{visited}}q+\sum_{\text{planned}}d+\sum_{\text{jobs}}r_j\Big)$$
+
+$\text{slack}_k$ is reduced as surges are granted, so the current plan always stays
+capacity-feasible. Because admissibility depends on where the trucks are, two strategies can see
+slightly different realized surges at $t_2$. Both the requested and the granted amounts are
+logged (`surge` in each epoch record).
+
 ### 5.4b Recourse: re-delivery jobs (`create_residual_jobs`, `dynamic_sim.py`)
 
 Right after the demand update at event $t_e$, every cluster $c$ whose satellite has **already been
@@ -234,9 +276,11 @@ $$r_c(t_e)=d_c(t_e)-q^{main}_c-\sum_{j\in\mathcal J^{done}_c}q_j-\sum_{j\in\math
 - $\mathcal J^{done}_c$ are its jobs already executed (counted at what they actually delivered);
 - $\mathcal J^{plan}_c$ are its jobs still planned.
 
-This covers three cases: a surge **after** delivery, a surge **during** delivery (truck still
-parked, drones flying), and a **shortfall** because the truck ran out of goods. Clusters not yet
-reached need no job, because their satellite delivers the demand valid at arrival.
+Under the demand rule (§5.4a) this covers two cases: a surge **during** delivery (truck still
+parked, drones flying), and a **shortfall** when the truck carried less than the true demand,
+which can only happen when demand is observed with noise (§5.4c). Clusters not yet reached need
+no job, because their satellite delivers the demand valid at arrival. Surges after the truck left
+no longer exist.
 
 **Serving a job.** A job is a route stop like a satellite. The truck drives to the job's host
 $h_j$, waits for $n^{wave}_j=\lceil r_j/UP\rceil$ waves of $2t'_{h_jc}$, and the delivery time is
@@ -251,6 +295,19 @@ and the `job_host` operator moves a job to another host.
 
 The `static` strategy never re-plans, so it never creates jobs. `--no-recourse` switches recourse
 off for re-planning strategies too (for ablation).
+
+### 5.4c Demand belief (POMDP)
+
+The true size of an admissible surge is reported with noise,
+$\hat d_c=d_c\,(1+\varepsilon)$ with $\varepsilon\sim\mathcal N(0,\sigma_d^2)$ (`demand_noise`).
+The planner's belief is $\mathcal N(\mu_c,\ (\sigma_d\mu_c)^2)$ with $\mu_c=\hat d_c$, until a
+truck reaches the cluster and observes the true demand.
+
+- **Objectives** use the mean $\mu_c$.
+- **Truck capacity and the drone battery** use a robust value
+  $\mu_c+z\,\sigma_d\mu_c$ with $z=1$ (`z_cap`); the `naive` planner uses $\hat d_c$ alone.
+- **If the truth is larger than planned**, the truck delivers what it carries and the shortfall
+  becomes a re-delivery job at the next event (§5.4b).
 
 ### 5.5 Objectives (minimize; over the **whole horizon**, locked parts are constants)
 
@@ -320,19 +377,40 @@ The score is a normalized blend of three parts:
 Each move picks its "primary" truck with probability $0.5/\lvert\mathcal K_A\rvert+0.5\,c_k$, so
 the most disrupted routes are searched more.
 
-### 5.8 DRL state (hook for SR-DRL-DMOEA; spec eq. 10)
+### 5.8 DRL operator controller (SR-DRL; spec eqs. 10–12; `drl_selector.py`)
 
-$$s_t=\big[c_1,\dots,c_K,\ \lvert A\rvert/A_{\max},\ u_D,\ u_V,\ r_{unmet},\ r_{uncertain}\big]$$
+A **Double DQN** chooses which neighbourhood operator the search applies next. This is the
+spec's "DRL selects operators" design (eq. 11), and the action space is the 9 operators of the
+re-optimizer.
 
-| Component | Meaning |
+**State** $s_t\in\mathbb R^{23}$ (spec eq. 10):
+
+| group | features |
 |---|---|
-| $\lvert A\rvert/A_{\max}$ | archive fill level |
-| $u_D$ | mean $d/UP$ (drone load) |
-| $u_V$ | free demand / remaining fleet capacity (truck load) |
-| $r_{unmet}$ | demand that cannot fit in the fleet |
-| $r_{uncertain}$ | share of arcs whose belief is not certain |
+| epoch context (7) | $\max_k c_k$, mean $c_k$; share of free satellites; re-delivery jobs per free satellite; $u_V$ = free demand / remaining fleet capacity; $u_D$ = mean $d/UP$; $r_{uncertain}$ = share of road arcs whose belief is not certain |
+| search state (7) | share of the time budget used; steps since the last improvement (scaled); current solution infeasible; gap current vs. best; recent acceptance rate; recent improvement rate; archive fill $\lvert A\rvert/A_{\max}$ |
+| last action (9) | one-hot of the previous operator |
 
-Built by `drl_state()`.
+**Action:** an operator. It is applied for a segment of 10 moves (a macro action), so the
+network runs once per 10 moves and costs almost no search time.
+
+**Reward:** per move, +5 for a new best solution, +2 for an improved current solution, +1 for a
+new Pareto-archive member; summed over the segment and rescaled. This is the improvement part of
+spec eq. 12. The budget term $-\beta\,\text{Eval}/\text{budget}$ is implicit, because every run
+has the same CPU budget.
+
+**Learning:**
+- **Network and update.** MLP 23–64–64–9 (ReLU) with Double-DQN targets
+  $y=r+\gamma\,Q_{target}\big(s',\arg\max_a Q(s',a)\big)$, $\gamma=0.9$.
+- **Training mechanics.** Huber loss, Adam ($10^{-3}$), replay buffer of 50 000, target sync
+  every 1000 decisions, and $\varepsilon$-greedy decaying from 1.0 to 0.05.
+
+**Training data:** `scripts/train_drl_selector.py`, on a **separate** set of 14 instances
+(`instances/dynamic_events_train/`, none of them in the test benchmark) with random scenarios,
+seeds and budgets. At test time the policy is frozen ($\varepsilon=0.05$).
+
+`uniform` (random operator) and `adaptive` (ALNS roulette) are the non-learning baselines
+(spec §8.3, "adaptive weight but no DRL").
 
 ### 5.9 Realized evaluation (after the last event; `realized_metrics`)
 
@@ -390,7 +468,21 @@ python3 scripts/generate_dynamic_dataset.py --seed 7 --out instances/dynamic_eve
    - **Demand surges:** about 15% of clusters, chosen as the unserved ones nearest the flood, surge
      ×1.10–1.20 at $t_1$ (priority set to 1.0) and ×1.15–1.30 at $t_2$ (priority 0.95).
 7. **Partial-observability variant.** `damage_30pct_partial` additionally sets
-   `reveal_prob = 0.6`.
+   `reveal_prob = 0.6`. Report accuracy and demand noise are run-time options
+   (`obs_accuracy`, `demand_noise`), so any scenario can be run as a POMDP.
+8. **Requested vs. realized surges.** The multipliers in the file are *requested* surges. At run
+   time the demand rule (§5.4a) drops those that arrive after the truck has left and caps the rest
+   to the serving truck's spare capacity.
+
+**Training set for the DRL controller.** The same generator, with a different seed, builds event
+files for 14 *other* instances. These are M-10-07-60, M-10-8-60 and M-17-15-60 (both fleets),
+and M-20-20 and M-50-50 at 50 and 70 km/h (both fleets). None of them is in the 12-instance test
+benchmark:
+
+```bash
+python3 scripts/generate_dynamic_dataset.py --seed 7 --out instances/dynamic_events_train \
+    --instances main/M-10-07-60-1,main/M-10-07-60-2,...,large/M-50-50-70-2
+```
 
 **File format** (one file per instance; each top-level key is one scenario):
 
@@ -455,9 +547,15 @@ The first version is the guide's §3 formulation and §5.3 generator, together w
 | Drone battery | proposal: energy $\propto k_1(W+L)+k_2v^3+k_3\tilde w^2$, sequential drain, probabilistic reserve; guide: fixed time budget $2t'\le T_d^{\max}$ | **energy model depending on speed and load** (same form as the proposal, wind optional), deterministic reserve $\rho$ | keeps the proposal's physics while staying an O(1) check per sortie; the fixed time budget never bound on these instances and gave faster drones more range |
 | Vehicle crashes, variable drone speed, multi-drop sorties | in the proposal slides | **not modelled** (vehicles always operational, fixed $v_d$ per instance, out-and-back sorties) | simplifications recommended by guide §2 |
 | Dynamic MILP | $x\le\xi$, recomputed $H(t)$ | **not implemented** (no Gurobi licence here) | listed as future work |
+| When demand may change | proposal: $h_i(t^+)=[\mathbb E\tilde h_i+\lambda_i-y]^+$ at any time | **only before or during service**, capped by the serving truck's remaining capacity (§5.4a) | a surge after the truck has left would require new trips and makes the model much harder |
+| Partial observability | proposal: continuous capacity $\tilde\eta_{ij}\in[0,1]$, belief density $b_t(\eta)$, integral for $\mathbb E[t]$ | **3 discrete states**, Markov prediction, **noisy reports with Bayes update**, exact observation on traversal; demand belief $\mathcal N(\mu,\sigma^2)$ (§5.1, §5.4c) | the integral diverges near $\eta=0$ (guide §2); the discrete belief keeps the POMDP but stays exact and cheap |
+| Safety threshold | proposal: route only if $\sum_{Open,Degraded}b_{t+1\mid t}\ge\theta$ | `belief_cc` planner: roads below $\theta$ are planned as detours (soft) | keeps every satellite reachable while still steering routes away from unreliable roads |
+| DRL controller | proposal: DRL selects repair operators | **Double DQN** over a 23-feature state, trained on separate instances (§5.8) | spec eqs. 10–12 |
 
 **Remaining limitations.**
 - A truck that is already driving back to the depot is retired and is not used for re-deliveries,
   even if it still carries goods.
-- If a surge exceeds the goods still on the active trucks, the shortfall stays unmet: there is no
-  second trip from the depot.
+- Under demand noise, a truck can arrive with less than the true demand. The shortfall is
+  re-delivered at the next event, but after the last event it stays unmet: there is no second
+  trip from the depot.
+- Vehicle crashes, variable drone speed, multi-drop sorties and the MILP are still not modelled.
