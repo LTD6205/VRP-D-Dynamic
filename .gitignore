@@ -8,3 +8,4 @@ gurobi.log
 *.lp
 .DS_Store
 instances/.drone_cache/
+results/logs_*.txt

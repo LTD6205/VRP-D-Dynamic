@@ -196,8 +196,8 @@ All values are *realized*: the final plan is executed on the true disrupted netw
 - `static` never re-plans, so it has no recourse.
 - f1 charges undelivered demand at $C_{ret}$.
 
-Raw data: `results/dynamic_*.csv`; `scripts/summarize_dynamic.py` regenerates the benchmark
-tables.
+Raw data: `results/dynamic_*.csv` and `results/ext_*.csv`. `scripts/summarize_dynamic.py`
+and `scripts/summarize_extension.py` regenerate the tables.
 
 ### 4.0 Unmet demand
 
@@ -322,6 +322,131 @@ Mean gap to the `oracle` planner, which knows the truth:
 **Battery.** In all 288 POMDP runs the highest sortie energy was 99.9% of usable battery: no
 sortie exceeded it.
 
+### 4.5 Drone routes to every victim vs. the centroid shortcut (`results/ext_drone_*.csv`)
+
+**Setup:**
+- **Sets:** main set (12 instances) and Solomon-based set (16 instances).
+- **Runs:** 30% and 50% damage × 2 seeds, Z1 objective.
+- **Budget:** 1.5 s for n ≤ 15, 3 s for n = 20, 5 s for n = 50; the t=0 plan gets 2×.
+- **Drone models compared:**
+  - `centroid`: the paper's model;
+  - `centroid+setup`: + 1 min launch, 2 min recovery;
+  - `route+setup`: drones visit every victim, + 6 s hover per drop.
+
+| set | drone model | static Z1 | truck dwell per stop (h) | drone trips per run | max battery use | ΔZ1 restart / warm / hybrid vs static | Δf1 warm vs static |
+|---|---|---|---|---|---|---|---|
+| main | centroid | 41.05 | 0.286 | 18.0 | 99.9% | −3.63 / −3.59 / −3.55% | −2.18% |
+| main | centroid+setup | 43.52 | 0.337 | 18.0 | 99.3% | −4.08 / −4.02 / −4.03% | −2.90% |
+| main | **route+setup** | **54.89** | **0.562** | **51.2** | 100.0% | −3.26 / −3.46 / −3.53% | **−3.84%** |
+| Solomon | centroid | 4.99 | 0.075 | 14.2 | 48.4% | −4.03 / −4.04 / −4.03% | −5.73% |
+| Solomon | centroid+setup | 6.99 | 0.149 | 14.3 | 48.4% | −2.89 / −2.96 / −2.73% | −4.69% |
+| Solomon | **route+setup** | **8.35** | **0.198** | **37.7** | 63.9% | −3.11 / −3.17 / −3.02% | −5.71% |
+
+- **The centroid shortcut is optimistic.** With the same strategy (warm), modelling the drones
+  properly raises the realized Z1 and the priority-weighted delivery time f1:
+
+  | set | Z1: setup times alone | Z1: routes + setup | f1: routes + setup |
+  |---|---|---|---|
+  | main | +5.4% | +31.4% | +36% |
+  | Solomon (fewer, more spread-out victims per cluster) | +43% | +72% | +98% |
+
+  The drones need about 2.7–2.8 times as many trips as the centroid model assumes. The truck's
+  waiting time at satellites becomes a large part of the day, especially when clusters are
+  small, as in Solomon.
+- **Re-planning still pays.** Z1 falls by about 3–4% in every drone model and both sets. With
+  victim-level routes the f1 gain is larger on the main set (−3.8% vs −2.2%): when drone time
+  matters more, re-matching satellites and clusters after an event is worth more.
+- **Battery and demand.**
+  - The leg-by-leg battery check is tight but never violated: max 100.0% of usable battery, 0
+    violations in 1,680 runs.
+  - Every re-planning run delivered all demand.
+  - The battery never binds on the compact 10 km Solomon geometry.
+- **The t=0 plan underestimates the day by 12–17% (gap₀ Z1)** under 30–50% damage, whichever
+  drone model is used. This is the cost of disruption that re-planning works against.
+
+### 4.6 Hybrid re-planning: repair first, search only if needed (`hybrid`, Han et al. 2023)
+
+Paired with `warm` on the same runs as §4.5 (selected rows; `scripts/summarize_extension.py` prints all of them):
+
+| set | drone model | tol | events repaired without search | ΔZ1 vs warm | p (Wilcoxon) | CPU vs warm |
+|---|---|---|---|---|---|---|
+| main | centroid | 2% | 15% | +0.05% | 0.98 | 89% |
+| main | centroid | 5% | 38% | +0.55% | 0.015 | 58% |
+| main | route+setup | 2% | 10% | −0.07% | 0.55 | 93% |
+| main | route+setup | 5% | 25% | +0.24% | 0.13 | 76% |
+| Solomon | centroid | 2% | 30% | +0.02% | — | 68% |
+| Solomon | route+setup | 2% | 18% | +0.16% | 0.28 | 82% |
+| Solomon | route+setup | 5% | 23% | +0.10% | 0.66 | 77% |
+
+- **2% threshold:** repairs 10–30% of events in milliseconds with **no measurable loss**. It
+  saves 7–32% of the re-planning CPU.
+- **5% threshold:** saves more, but on the main set the centroid models lose 0.4–0.6% Z1
+  (significant). Large road damage almost always exceeds the threshold, so it triggers a full
+  search, as intended.
+- **Demand-only events** (§4.7) are where repair shines: 44–81% of events are repaired. CPU per
+  run drops from 3.0 s to 0.6 s (main) or 1.2 s (Solomon), with ≤ 0.12% Z1 difference.
+
+### 4.7 Dynamic degree: how much demand appears after dispatch (`results/ext_dod_*.csv`)
+
+**Setup:**
+- demand surges only (road damage switched off with `--no-road-events`);
+- route+setup drones;
+- surge multipliers scaled by s ∈ {0.5, 1, 2, 4};
+- 2 seeds.
+
+The realized dynamic degree (DoD) is the share of final demand that only appeared after t = 0.
+
+| set | s | DoD | static: mean unmet / runs with unmet | ΔZ1 warm vs static | Δf1 warm vs static | hybrid: events repaired | hybrid vs warm |
+|---|---|---|---|---|---|---|---|
+| main (n ≤ 15) | 0.5 | 2.5% | 0.38% / 6 of 16 | +0.73% | −0.34% | 81% | +0.00% |
+| main (n ≤ 15) | 1 | 4.9% | 0.75% / 6 of 16 | +0.72% | −0.69% | 81% | +0.02% |
+| main (n ≤ 15) | 2 | 9.0% | 1.69% / 7 of 16 | +0.78% | −0.61% | 72% | +0.04% |
+| main (n ≤ 15) | 4 | 15.2% | 3.14% / 7 of 16 | +0.75% | **−2.83%** | 81% | +0.00% |
+| Solomon | 0.5 | 2.3% | 0.30% / 16 of 32 | +1.18% | +0.14% | 69% | +0.07% |
+| Solomon | 1 | 4.3% | 0.59% / 14 of 32 | +1.20% | +0.33% | 69% | +0.03% |
+| Solomon | 2 | 7.1% | 1.15% / 14 of 32 | +0.89% | +0.04% | 62% | +0.05% |
+| Solomon | 4 | 11.7% | 2.00% / 12 of 32 | +0.91% | +1.53% | 44% | +0.12% |
+
+- **Unmet demand.** With demand dynamics only, the `static` plan leaves **0.3–3.1% of demand
+  unmet**, growing linearly with the dynamic degree. It never schedules the extra drone trips for
+  surges that arrive during service. Re-planning delivers **everything** in every run, through
+  extra trips and re-deliveries.
+- **Z1 cost of serving everything.** Serving the extra demand costs about 0.7–1.2% more Z1 than
+  the static plan, which simply skips it. Without road damage there is little to gain from
+  re-routing.
+- **Delivery time.**
+  - **Main set:** the priority-weighted delivery time improves, by up to −2.8% at the highest
+    dynamic degree.
+  - **Solomon set:** f1 gets slightly worse (+0.0 to +1.5%). Its clusters are small, so an
+    extra drone round delays every later stop by about as much as the C_ret penalty charges for
+    the unmet units. f1 values unmet demand at the last return time, which is lenient; a
+    deprivation-cost objective (§6) would penalize it more.
+- **Hybrid.** Most of these events fit the plan in force, which is Han et al.'s "low dynamic
+  degree" case. Repair alone handles 44–81% of them.
+
+### 4.8 Plan-vs-actual gap under partial information (`results/ext_pomdp_gap.csv`)
+
+**Setup:**
+- warm strategy, 30% damage, 12 instances × 2 seeds;
+- reveal 0.6, report accuracy 0.8, demand noise 15%;
+- gap = (predicted − realized) / realized.
+
+| planner | gap₀ Z1 (t=0 plan) | gap_last Z1 (mean / mean abs.) | gap_last f1 | ΔZ1 vs oracle |
+|---|---|---|---|---|
+| oracle | −7.9% | −0.09% / 0.09% | −0.00% | — |
+| naive | −8.8% | −4.28% / **5.08%** | −1.51% | +0.99% |
+| belief | −9.2% | −1.67% / **3.28%** | −1.89% | +1.40% |
+| belief_cc | −9.2% | −1.05% / 3.33% | −1.28% | +1.42% |
+
+- **The dispatch plan is optimistic by 8–9%** under 30% damage, as in VRPD-DT's motivation.
+- **The Bayesian belief gives the most accurate forecasts.** After the last event, the
+  belief-based planners' own prediction of Z1 is off by 3.3% on average, against 5.1% for the
+  report-trusting `naive` planner, which underestimates by 4.3%. So the belief is better
+  *calibrated*, which matters when a plan's forecast is used to promise delivery times.
+- **On Z1 itself, `naive` was slightly better in this smaller run** (+1.0% vs +1.4% to oracle).
+  The 288-run experiment of §4.3 found the reverse (belief +3.0% vs naive +3.8%). The Z1
+  difference between the two is small and not robust; the forecast-accuracy difference is.
+
 ## 5. Review of the guide: what changed and why
 
 1. **Trigger times (guide §5.3).** The fixed epochs of 0.40 h and 0.85 h fall before the first
@@ -360,6 +485,12 @@ sortie exceeded it.
    value grows with satellites per truck (the `-1` fleets and n=50).
 
 ## 6. Suggested next steps (toward SR-DRL-DMOEA)
+
+0. **Use RL for a decision, not for operator choice.** Chen, Ulmer & Thomas (2021) learn
+   *which vehicle serves a request*, with action features such as the insertion cost. Here that
+   would be the re-delivery assignment (truck revisit / drone from another satellite / next wave)
+   or the re-planning trigger. The trigger is now explicit in `hybrid` (§4.6), so it could be
+   learned instead of fixed at 2%.
 
 1. **Give the DRL controller more room.** It is implemented and trained, but it does not yet beat
    the roulette (§4.4). Options:
