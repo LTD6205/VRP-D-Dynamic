@@ -30,11 +30,11 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 PLANNERS = ("oracle", "naive", "belief", "belief_cc")
 FIELDS = ["instance", "n", "K", "scenario", "seed", "planner", "f1", "f2", "f3", "C_del", "unmet_ratio",
-          "n_redeliveries", "max_battery_use", "replan_cpu_s"]
+          "n_redeliveries", "max_battery_use", "replan_cpu_s", "gap0_f1", "gap0_f3", "gap_last_f1", "gap_last_f3"]
 
 
 def find_instance(name):
-    for sub in ("main", "large"):
+    for sub in ("main", "large", "solomon"):
         p = os.path.join(ROOT, "instances", sub, f"{name}.txt")
         if os.path.exists(p):
             return p
@@ -56,7 +56,8 @@ def job(a):
         m = out["warm"]["metrics"]
         rows.append(dict(instance=name, n=w.inst.n, K=w.inst.no_k, scenario=scenario, seed=seed, planner=pl,
                          **{k: m[k] for k in ("f1", "f2", "f3", "C_del", "unmet_ratio", "n_redeliveries",
-                                              "max_battery_use", "replan_cpu_s")}))
+                                              "max_battery_use", "replan_cpu_s", "gap0_f1", "gap0_f3",
+                                              "gap_last_f1", "gap_last_f3")}))
     return rows
 
 

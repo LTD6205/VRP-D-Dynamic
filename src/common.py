@@ -107,7 +107,7 @@ def parse_instance(filepath: str) -> Instance:
 
 
 
-_FROZEN_CLUSTER_DIRS = ["instances/main", "instances/large"]
+_FROZEN_CLUSTER_DIRS = ["instances/main", "instances/large", "instances/solomon"]
 
 
 def _frozen_cluster_path(name):

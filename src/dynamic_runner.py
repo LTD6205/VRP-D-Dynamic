@@ -9,6 +9,13 @@ Strategies
   restart  : re-solve every epoch from a fresh randomized construction, no memory.
   warm     : warm start from the previous plan's suffix + projected Pareto archive +
              elite sigma pool + disruption-focused (segment-aware) operator moves.
+  hybrid   : event-triggered repair (Han et al. 2023): first REPAIR the previous plan
+             (keep its suffix, insert the new re-delivery jobs at their cheapest
+             positions, re-match only drone pairings that became battery-infeasible).
+             If the repaired plan is feasible and its predicted objective is at most
+             `hybrid_tol` (relative, under the epoch's weights) worse than what the
+             previous plan predicted, commit it without searching; otherwise run the
+             full warm re-optimization. Saves CPU when an event barely matters.
 
 All strategies of one run share the SAME epoch-0 plan (solved once), so differences
 come only from how they react to events.
@@ -22,6 +29,7 @@ import numpy as np
 
 from common import cluster_victims, compute_distances, parse_instance
 from drone_energy import DroneBattery
+from drone_service import SetupTimes, make_service
 from dynamic_env import DemandProcess, RoadNetwork, Scenario, load_scenarios
 from dynamic_sim import Job, Plan, Simulator, admissible_surges, create_residual_jobs, realized_metrics
 from dynamic_solver import (DynamicReoptimizer, ReoptConfig, ReplanProblem, Sol, drl_state,
@@ -92,7 +100,9 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
                     theta: float = 0.8, reveal_prob: Optional[float] = None,
                     obs_accuracy: Optional[float] = None, demand_noise: float = 0.0,
                     z_cap: float = 1.0, selector_model: Optional[str] = None,
-                    paired_selectors: Optional[List[str]] = None) -> Dict[str, dict]:
+                    paired_selectors: Optional[List[str]] = None, drone_model: str = "centroid",
+                    setup: Optional[SetupTimes] = None, surge_scale: float = 1.0,
+                    hybrid_tol: float = 0.02, road_events: bool = True) -> Dict[str, dict]:
     """recourse=True: re-planning strategies create re-delivery jobs for residual demand
     (surges after/during delivery, shortfalls); the 'static' strategy never re-plans and so
     never gets recourse.
@@ -100,7 +110,14 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
     POMDP options: reveal_prob / obs_accuracy override the scenario's road observation model;
     demand_noise is the relative s.d. of reported surge demand; planner selects how the
     planner reads the observations (oracle | naive | belief | belief_cc, see RoadNetwork);
-    z_cap: capacity/battery use  mean + z_cap * sd  of the demand belief."""
+    z_cap: capacity/battery use  mean + z_cap * sd  of the demand belief.
+
+    drone_model: 'centroid' (paper: drones fly to the cluster centroid) | 'route' (drones
+    visit every victim, multi-trip CVRP per cluster); setup: drone launch/recovery/drop
+    times (drone_service.SetupTimes); surge_scale (dynamic degree): every surge multiplier
+    m becomes 1 + surge_scale (m - 1) (0 = no demand dynamics); hybrid_tol: repair
+    threshold of the 'hybrid' strategy (a strategy name 'hybrid@0.05' sets it per strategy);
+    road_events=False ignores the road-damage updates (isolates demand dynamics)."""
     def mk_sel(r):
         # a string names a selector type; an object (e.g. a DQN being trained) is shared as is
         return make_selector(selector, r, selector_model) if isinstance(selector, str) else selector
@@ -111,13 +128,14 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
     n, Q, UP = inst.n, float(inst.q), float(inst.no_u * inst.p)
     trucks = list(range(inst.no_k))
     battery = DroneBattery(sc.energy, inst.v_d, inst.no_u, inst.p)
+    service = make_service(drone_model, inst, cl, dist, battery, UP, sc.energy, setup)
     epochs = sc.epochs
 
     def fresh_env():
         net = RoadNetwork(dist.time_n_0, sc.transition, rp, rng=np.random.default_rng(seed + 7919),
                           obs_accuracy=acc)
         dem = DemandProcess(cl.demand_n, sc.initial_priorities)
-        return net, dem, Simulator(n, Q, UP, dist.time_n_m, net, dem, battery)
+        return net, dem, Simulator(n, Q, UP, dist.time_n_m, net, dem, battery, service)
 
     # ---------------- shared epoch-0 solve ----------------
     net, dem, sim = fresh_env()
@@ -127,7 +145,9 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
     dem.apply(0.0, ev0.demand_multipliers, ev0.priority_updates)
     snap0 = sim.initial_snapshot(trucks)
     prob0 = ReplanProblem(snap0, net.expected_time(), dist.time_n_m, dem.current_demand,
-                          dem.current_priority, Q, UP, battery, n)
+                          dem.current_priority, Q, UP, battery, n, service=service)
+    if hasattr(service, "save_cache"):
+        service.save_cache()                     # route model: persist the base-demand drone tables
     rng0 = np.random.default_rng(seed)
     solver0 = DynamicReoptimizer(prob0, cfg0, rng0, mk_sel(rng0))
     res0 = solver0.solve(solver0.construct())
@@ -153,7 +173,9 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
         epoch0_rec["paired"] = paired_solve(prob0, lambda so: so.construct(), cfg0, 0)
 
     out = {}
-    for si, strat in enumerate(strategies):
+    for si, strat_name in enumerate(strategies):
+        strat, _, tol_s = strat_name.partition("@")
+        tol = float(tol_s) if tol_s else hybrid_tol
         net, dem, sim = fresh_env()
         net.apply_edge_updates(0.0, ev0.edge_updates)
         dem.apply(0.0, ev0.demand_multipliers, ev0.priority_updates)
@@ -167,15 +189,20 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
         noise_rng = np.random.default_rng(seed + 104729)      # demand reports (same for all strategies)
         reported: Dict[int, float] = {}                       # cluster -> reported (believed) demand
         replan_cpu = 0.0
+        n_repaired = 0
+        surge_requested = surge_granted = 0.0
+        prev_pred = res0.chosen_objs                   # predicted objectives of the plan in force
         next_job = n + 2                               # job ids start right after the end depot
         for ev in epochs[1:]:
             tl = sim.simulate(plan)
             snap = sim.commit(plan, tl, ev.time)
             net.observe_traversed(snap.traversed_arcs)
-            net.apply_edge_updates(ev.time, ev.edge_updates)
+            net.apply_edge_updates(ev.time, ev.edge_updates if road_events else [])
             # demand rule: surges only before/during service and within the serving truck's capacity
-            incs, surge_stats = admissible_surges(plan, tl, ev.time, ev.demand_multipliers,
-                                                  dem.current_demand, Q)
+            mult = {c: 1.0 + surge_scale * (float(m_) - 1.0) for c, m_ in ev.demand_multipliers.items()}
+            incs, surge_stats = admissible_surges(plan, tl, ev.time, mult, dem.current_demand, Q)
+            surge_requested += surge_stats["requested"]
+            surge_granted += surge_stats["granted"]
             dem.apply_increments(ev.time, incs, ev.priority_updates)
             # demand observation: surged clusters are reported with noise until a truck reaches them
             for c in incs:
@@ -198,7 +225,7 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
                 new_jobs, next_job = create_residual_jobs(plan, tl, snap, dem, next_job)
                 plan.jobs.update(new_jobs)
             prob = ReplanProblem(snap, T, dist.time_n_m, d_plan, dem.current_priority,
-                                 Q, UP, battery, n, jobs=plan.jobs, demand_sd=d_sd, z=z_cap)
+                                 Q, UP, battery, n, jobs=plan.jobs, demand_sd=d_sd, z=z_cap, service=service)
             prob.uncertain = net.uncertain_ratio()
             rec = dict(epoch=ev.epoch_id, time=ev.time, n_free=len(prob.free), n_active=len(prob.active),
                        new_jobs=len(new_jobs), residual_demand=float(sum(j.amount for j in new_jobs.values())),
@@ -211,14 +238,39 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
                 for j in new_jobs:                      # no active truck can take them: stays unmet
                     plan.jobs.pop(j, None)
                 rec.update(pred_objs=o, viol=v, archive_size=0, iterations=0, runtime_s=0.0)
+                prev_pred = o
                 recs.append(rec)
                 prev_T, prev_d = T, d_plan.copy()
                 continue
 
-            focus = segment_disruption(prob, plan, prev_T, prev_d) if strat == "warm" else None
+            focus = segment_disruption(prob, plan, prev_T, prev_d) if strat in ("warm", "hybrid") else None
             sel.new_epoch()
             solver = DynamicReoptimizer(prob, cfg, rng, sel, focus)
-            if strat == "warm":
+            if strat == "hybrid":
+                # (A) repair first; search only if the repair is infeasible or clearly worse
+                import time as _time
+                t_rep = _time.process_time()
+                rep = solver.warm_start(plan)
+                v_r, o_r = prob.evaluate(rep.routes, rep.sigma, rep.hosts)
+                w_ = np.asarray(cfg.weights if cfg.mode == "so" else cfg.commit_weights, dtype=float)
+                rel = float(np.dot(w_, (np.asarray(o_r) - np.asarray(prev_pred))
+                                   / np.maximum(np.abs(prev_pred), 1e-9)) / max(w_.sum(), 1e-9))
+                rec.update(repair_gap=rel, repair_feasible=bool(v_r == 0))
+                if v_r == 0 and rel <= tol:
+                    dt_rep = _time.process_time() - t_rep
+                    replan_cpu += dt_rep
+                    n_repaired += 1
+                    rec.update(pred_objs=o_r, viol=0.0, archive_size=0, iterations=0, runtime_s=dt_rep,
+                               repaired=True)
+                    new_plan = merge(snap, rep, plan.jobs)
+                    check_plan(new_plan, n, snap, sim)
+                    plan = new_plan
+                    prev_pred = o_r
+                    prev_T, prev_d = T, d_plan.copy()
+                    recs.append(rec)
+                    continue
+                rec["repaired"] = False
+            if strat in ("warm", "hybrid"):
                 init = solver.warm_start(plan)
                 seeds = [solver.project(s) for (_, s) in archive_items]
                 res = solver.solve(init, seeds, elite)
@@ -248,6 +300,7 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
             new_plan = merge(snap, res.chosen, plan.jobs)
             check_plan(new_plan, n, snap, sim)
             plan = new_plan
+            prev_pred = res.chosen_objs
             archive_items = list(res.archive.items)
             elite = res.elite
             prev_T, prev_d = T, d_plan.copy()
@@ -259,11 +312,24 @@ def run_closed_loop(world: World, strategies: List[str], cfg0: ReoptConfig, cfg:
         tl = sim.simulate(plan)
         m = realized_metrics(tl, dem, Q)
         m["replan_cpu_s"] = replan_cpu
-        out[strat] = dict(metrics=m, epochs=recs,
+        m["n_repaired"] = n_repaired
+        # (B) realized dynamic degree: share of the final demand that arrived as surges after t=0
+        m["dynamic_degree"] = surge_granted / max(m["D"], 1e-9)
+        m["surge_requested"] = surge_requested
+        # (C) plan-vs-actual discrepancy: (predicted - realized) / realized, for the plan made at
+        # t = 0 and for the last plan in force
+        last_pred = recs[-1].get("pred_objs", res0.chosen_objs)
+        for i_, f_ in ((0, "f1"), (2, "f3")):
+            m[f"gap0_{f_}"] = (float(res0.chosen_objs[i_]) - m[f_]) / max(abs(m[f_]), 1e-9)
+            m[f"gap_last_{f_}"] = (float(last_pred[i_]) - m[f_]) / max(abs(m[f_]), 1e-9)
+        m["drone_model"] = service.name
+        m["mean_wait"] = float(np.mean([r.wait for r in tl.sats.values()]))
+        m["total_drone_trips"] = int(sum(r.waves for r in list(tl.sats.values()) + list(tl.jobs.values())))
+        out[strat_name] = dict(metrics=m, epochs=recs,
                           plan=dict(routes={str(k): v for k, v in plan.routes.items()},
                                     sigma={str(k): v for k, v in plan.sigma.items()},
                                     jobs={str(j): vars(x) for j, x in plan.jobs.items()}))
         if verbose:
-            print(f"  [{strat}] realized f1={m['f1']:.4f} f2={m['f2']:.4f} f3={m['f3']:.4f} "
+            print(f"  [{strat_name}] realized f1={m['f1']:.4f} f2={m['f2']:.4f} f3={m['f3']:.4f} "
                   f"unmet={m['unmet_ratio']:.3%}")
     return out

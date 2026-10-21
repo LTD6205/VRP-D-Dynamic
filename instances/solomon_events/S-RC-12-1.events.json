@@ -1,0 +1,1493 @@
+{
+ "damage_10pct": {
+  "base_instance": "S-RC-12-1.txt",
+  "num_satellites": 12,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 1.0,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 6,
+  "initial_priorities": {
+   "1": 0.77,
+   "2": 0.65,
+   "3": 0.8,
+   "4": 0.74,
+   "5": 0.53,
+   "6": 0.84,
+   "7": 0.77,
+   "8": 0.78,
+   "9": 0.54,
+   "10": 0.66,
+   "11": 0.63,
+   "12": 0.82
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 0.164,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 6,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 6,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "5": 1.11,
+     "4": 1.15
+    },
+    "priority_updates": {
+     "5": 1.0,
+     "4": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 0.437,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 6,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 6,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "12": 1.25,
+     "7": 1.22
+    },
+    "priority_updates": {
+     "12": 0.95,
+     "7": 0.95
+    }
+   }
+  ]
+ },
+ "damage_30pct": {
+  "base_instance": "S-RC-12-1.txt",
+  "num_satellites": 12,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 1.0,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 6,
+  "initial_priorities": {
+   "1": 0.77,
+   "2": 0.65,
+   "3": 0.8,
+   "4": 0.74,
+   "5": 0.53,
+   "6": 0.84,
+   "7": 0.77,
+   "8": 0.78,
+   "9": 0.54,
+   "10": 0.66,
+   "11": 0.63,
+   "12": 0.82
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 0.164,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 2,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 4,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "5": 1.17,
+     "4": 1.1
+    },
+    "priority_updates": {
+     "5": 1.0,
+     "4": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 0.437,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 6,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 1,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 5,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "12": 1.16,
+     "7": 1.17
+    },
+    "priority_updates": {
+     "12": 0.95,
+     "7": 0.95
+    }
+   }
+  ]
+ },
+ "damage_50pct": {
+  "base_instance": "S-RC-12-1.txt",
+  "num_satellites": 12,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 1.0,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 10,
+  "initial_priorities": {
+   "1": 0.77,
+   "2": 0.65,
+   "3": 0.8,
+   "4": 0.74,
+   "5": 0.53,
+   "6": 0.84,
+   "7": 0.77,
+   "8": 0.78,
+   "9": 0.54,
+   "10": 0.66,
+   "11": 0.63,
+   "12": 0.82
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 0.164,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 10,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 11,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "5": 1.13,
+     "4": 1.2
+    },
+    "priority_updates": {
+     "5": 1.0,
+     "4": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 0.437,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 9,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 11,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 8,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 12,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 0,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 7,
+      "v": 6,
+      "state": "closed_detour"
+     },
+     {
+      "u": 6,
+      "v": 7,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "7": 1.28,
+     "11": 1.17
+    },
+    "priority_updates": {
+     "7": 0.95,
+     "11": 0.95
+    }
+   }
+  ]
+ },
+ "damage_30pct_partial": {
+  "base_instance": "S-RC-12-1.txt",
+  "num_satellites": 12,
+  "drone_energy": {
+   "v_ref": 60.0,
+   "t_empty_ref": 0.65,
+   "weight_share": 0.6,
+   "beta_payload": 0.8,
+   "reserve": 0.15,
+   "battery": 1.0,
+   "wind": 0.0,
+   "k_wind": 0.0
+  },
+  "reveal_prob": 0.6,
+  "markov_transition": [
+   [
+    0.92,
+    0.06,
+    0.02
+   ],
+   [
+    0.15,
+    0.75,
+    0.1
+   ],
+   [
+    0.05,
+    0.15,
+    0.8
+   ]
+  ],
+  "flood_centre_satellite": 9,
+  "initial_priorities": {
+   "1": 0.77,
+   "2": 0.65,
+   "3": 0.8,
+   "4": 0.74,
+   "5": 0.53,
+   "6": 0.84,
+   "7": 0.77,
+   "8": 0.78,
+   "9": 0.54,
+   "10": 0.66,
+   "11": 0.63,
+   "12": 0.82
+  },
+  "epochs": [
+   {
+    "epoch_id": 0,
+    "trigger_time_h": 0.0,
+    "description": "Initial dispatch from depot",
+    "edge_updates": [],
+    "demand_multipliers": {},
+    "priority_updates": {}
+   },
+   {
+    "epoch_id": 1,
+    "trigger_time_h": 0.164,
+    "description": "Flood onset around the flood centre; nearby shelters surge",
+    "edge_updates": [
+     {
+      "u": 9,
+      "v": 8,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 4,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 4,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 7,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 12,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 5,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 5,
+      "state": "closed_detour"
+     },
+     {
+      "u": 11,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 9,
+      "state": "degraded"
+     },
+     {
+      "u": 9,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 2,
+      "state": "degraded"
+     }
+    ],
+    "demand_multipliers": {
+     "9": 1.15,
+     "11": 1.13
+    },
+    "priority_updates": {
+     "9": 1.0,
+     "11": 1.0
+    }
+   },
+   {
+    "epoch_id": 2,
+    "trigger_time_h": 0.437,
+    "description": "Flood progression + escalation; newly reported shelter demand",
+    "edge_updates": [
+     {
+      "u": 2,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 4,
+      "state": "degraded"
+     },
+     {
+      "u": 4,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 12,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 12,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 10,
+      "state": "closed_detour"
+     },
+     {
+      "u": 10,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 8,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 8,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 1,
+      "state": "degraded"
+     },
+     {
+      "u": 1,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 11,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 11,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 7,
+      "state": "degraded"
+     },
+     {
+      "u": 3,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 3,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 5,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 2,
+      "v": 6,
+      "state": "degraded"
+     },
+     {
+      "u": 7,
+      "v": 2,
+      "state": "degraded"
+     },
+     {
+      "u": 0,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 2,
+      "v": 0,
+      "state": "closed_detour"
+     },
+     {
+      "u": 5,
+      "v": 2,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 10,
+      "state": "degraded"
+     },
+     {
+      "u": 10,
+      "v": 3,
+      "state": "degraded"
+     },
+     {
+      "u": 6,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 3,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 0,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 1,
+      "v": 9,
+      "state": "closed_detour"
+     },
+     {
+      "u": 9,
+      "v": 2,
+      "state": "closed_detour"
+     }
+    ],
+    "demand_multipliers": {
+     "12": 1.25,
+     "5": 1.21
+    },
+    "priority_updates": {
+     "12": 0.95,
+     "5": 0.95
+    }
+   }
+  ]
+ },
+ "_meta": {
+  "seed": 42,
+  "baseline_arrival_quantiles": [
+   0.164,
+   0.437
+  ],
+  "baseline_first_last_arrival": [
+   0.0767275,
+   0.7035034766397332
+  ],
+  "battery_note": "default battery; 0% of satellite-centroid pairs battery-infeasible at base demand",
+  "n_arcs": 156
+ }
+}

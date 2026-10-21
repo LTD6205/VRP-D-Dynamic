@@ -75,7 +75,7 @@ class ReplanProblem:
     def __init__(self, snap: Snapshot, T: np.ndarray, tdm: np.ndarray, demand: np.ndarray,
                  priority: np.ndarray, Q: float, UP: float, battery, n: int,
                  jobs: Optional[Dict[int, Job]] = None,
-                 demand_sd: Optional[np.ndarray] = None, z: float = 0.0):
+                 demand_sd: Optional[np.ndarray] = None, z: float = 0.0, service=None):
         self.snap = snap
         self.n = n
         self.vend = n + 1
@@ -101,28 +101,36 @@ class ReplanProblem:
         self.start = {k: snap.trucks[k].start_node for k in self.active}
         self.avail = {k: snap.trucks[k].avail_time for k in self.active}
 
-        # battery-feasible satellite/centroid pairs at the CURRENT demand (load depends on demand)
-        self.energy = self.battery.energy_matrix(tdm, np.asarray(self.d_cap, dtype=float))
-        self.pair_ok = self.battery.pair_ok(tdm, np.asarray(self.d_cap, dtype=float))
+        # second-echelon drone service model (drone_service.py): centroid (paper) or route (victim CVRP)
+        if service is None:
+            from drone_service import CentroidService
+            service = CentroidService(tdm, self.battery, UP)
+        self.service = service
+        # dwell W_sc and delivery offset delta_sc at the planned (mean) demand; battery use and
+        # feasibility at the robust demand d_cap (the load depends on the demand)
+        W, OFF, USE, OK = service.tables(np.asarray(self.d, dtype=float), np.asarray(self.d_cap, dtype=float))
+        self.Wl, self.OFFl = W.tolist(), OFF.tolist()
+        self.energy = USE
+        self.pair_ok = OK
 
         # ---- recourse jobs (residual demand) that still have to be delivered ----
         locked_jobs = getattr(snap, "locked_jobs", {}) or {}
         self.jobs: Dict[int, Tuple[int, float]] = {
             j: (job.cluster, float(job.amount)) for j, job in (jobs or {}).items() if j not in locked_jobs}
         self.free_jobs = sorted(self.jobs)
-        self.job_waves = {j: max(1, math.ceil(a / UP - 1e-9)) for j, (c, a) in self.jobs.items()}
         self.job_hosts: Dict[int, List[int]] = {}
-        sats = np.arange(1, n + 1)
+        self.job_svc: Dict[Tuple[int, int], Tuple[float, float]] = {}   # (job, host) -> (W, offset)
         for j, (c, a) in self.jobs.items():
-            ok = self.battery.pair_ok(tdm[:, [c - 1]], np.array([a]))[:, 0]
-            hosts = [int(h) for h in sats[ok]]
+            svc = {h: service.service(h, c, a, split=False) for h in range(1, n + 1)}
+            hosts = [h for h, r in svc.items() if r.use <= 1.0 + 1e-12]
             # the cluster's own satellite flew this cluster before -- keep it as a last resort
             self.job_hosts[j] = hosts or [int(jobs[j].host)]
+            for h, r in svc.items():
+                self.job_svc[(j, h)] = (r.wait, r.offset)
         self.default_host = {j: (jobs[j].host if jobs[j].host in self.job_hosts[j] else self.job_hosts[j][0])
                              for j in self.jobs}
 
         # ---- constants from the locked part ----
-        self.waves_c = [max(1, math.ceil(x / UP - 1e-9)) for x in self.d]
         used = {k: 0.0 for k in self.active}
         a_list, f1num = [], 0.0
         for s, r in snap.locked.items():
@@ -150,7 +158,8 @@ class ReplanProblem:
         Route items are free satellites (<= n) or re-delivery jobs (> n+1, served from hosts[j])."""
         n, jobs = self.n, self.jobs
         hosts = hosts or {}
-        T, tdm, d, w, vend = self.T, self.tdm, self.d, self.w, self.vend
+        T, d, w, vend = self.T, self.d, self.w, self.vend
+        W, OFF, job_svc = self.Wl, self.OFFl, self.job_svc
         s_arr, lo, hi, f1 = self.const_sum, self.const_min, self.const_max, self.const_f1
         viol = 0.0
         for k in self.active:
@@ -164,9 +173,9 @@ class ReplanProblem:
                     c, amt = jobs[s]
                     h = hosts.get(s, self.default_host[s])
                     t += T[prev][h]                     # job stop: not counted in f2/f3 itself, but
-                    fly = tdm[h - 1][c - 1]                # it delays every later stop and the return
-                    f1 += w[c - 1] * amt * (t + fly)
-                    t += self.job_waves[s] * 2 * fly
+                    wait, off = job_svc[(s, h)]            # it delays every later stop and the return
+                    f1 += w[c - 1] * amt * (t + off)
+                    t += wait
                     load += amt
                     prev = h
                     continue
@@ -179,9 +188,8 @@ class ReplanProblem:
                 c = sigma[s] - 1
                 if not self.pair_ok[s - 1, c]:     # safety net for C4 (battery)
                     viol += BATTERY_PENALTY
-                fly = tdm[s - 1][c]
-                f1 += w[c] * d[c] * (t + fly)
-                t += self.waves_c[c] * 2 * fly
+                f1 += w[c] * d[c] * (t + OFF[s - 1][c])     # delivery time a_s + delta_sc
+                t += W[s - 1][c]                           # truck waits for its drones
                 load += self.d_cap[c]
                 prev = s
             t += T[prev][vend]

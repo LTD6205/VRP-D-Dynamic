@@ -26,7 +26,7 @@ FIELDS = ["instance", "n", "K", "scenario", "seed", "budget", "epoch", "selector
 
 
 def find_instance(name):
-    for sub in ("main", "large"):
+    for sub in ("main", "large", "solomon"):
         p = os.path.join(ROOT, "instances", sub, f"{name}.txt")
         if os.path.exists(p):
             return p

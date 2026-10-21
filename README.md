@@ -9,6 +9,8 @@
 > **Initial (proposal) formulation:** [`docs/INITIAL_FORMULATION.md`](docs/INITIAL_FORMULATION.md).
 >
 > **Formulation summary** (variables, formulas, constraints, dataset generation, changes vs. the first version): [`docs/FORMULATION.md`](docs/FORMULATION.md).
+>
+> **Implementation guide** (the whole code explained file by file, from the static repo to the latest additions): [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md).
 
 This extension turns the static 2E-CTVRP of Nguyen, Piplani & Gunawan (see [`README_STATIC.md`](README_STATIC.md)) into
 the dynamic, event-driven truck–drone relief problem described in `bai_toan_iii_truck_drone.pdf`.
@@ -23,9 +25,13 @@ static solvers, the MILP and the shipped instances behave exactly as before.
 | `src/dynamic_env.py` | 3-state road model (Open / Degraded ×2.5 / Detour ×5.0), true state vs. planner **belief** (POMDP: Markov prediction, partial and **noisy** reports with Bayes update, chance-constrained planning view), demand and priority process, `.events.json` loader |
 | `src/dynamic_sim.py` | Executes a plan on the *true* network (arc time fixed at departure), **freezes history** at an event (`commit`), applies the **demand rule** (`admissible_surges`), creates **re-delivery jobs** for residual demand (`create_residual_jobs`), and computes realized KPIs |
 | `src/dynamic_solver.py` | Residual problem at epoch *t* plus the multi-objective re-optimizer: N1–N7 from the repo plus destroy-repair, segment-focused moves, best-of-K local search, path relinking with an elite σ-pool that survives epochs, Pareto archive, and the operator-selector hook (the slot for the DRL agent) |
-| `src/dynamic_runner.py` | Closed loop: solve at t=0 → execute → event → freeze → re-plan → … for the strategies `static`, `restart` and `warm`, with invariant checks after every re-plan |
+| `src/dynamic_runner.py` | Closed loop: solve at t=0 → execute → event → freeze → re-plan → … for the strategies `static`, `restart`, `warm` and `hybrid` (repair first, search only if needed), with invariant checks after every re-plan; dynamic-degree scaling and plan-vs-actual gap metrics |
 | `src/mo_utils.py` | Pareto archive (crowding truncation), exact 3-D hypervolume, Das-Dennis weights |
 | `src/drone_energy.py` | Drone battery: sortie energy from speed, load and distance |
+| `src/drone_service.py` | **Second echelon**: `CentroidService` (paper: drones fly to the cluster centroid) or `RouteService` (drones visit **every victim**: multi-trip CVRP per cluster, leg-by-leg battery, makespan of U drones); optional launch / recovery / drop **setup times** |
+| `scripts/generate_solomon_instances.py` | Second benchmark: 16 instances built from the **Solomon** VRPTW geometries (C1, C2, R, RC) → `instances/solomon/`, events in `instances/solomon_events/` |
+| `scripts/summarize_extension.py` | Tables of the extension experiments (§4.5–4.8) |
+| `tests/test_drone_service.py` | Checks of both drone models (coverage, payload, energy vs. brute force, identity with the paper) |
 | `src/drl_selector.py` | **DRL operator controller**: Double DQN in plain numpy (no deep-learning library needed) |
 | `scripts/train_drl_selector.py` | Trains the DQN on a separate training set (`instances/dynamic_events_train/`) → `models/dqn_selector.npz` |
 | `scripts/run_pomdp_experiment.py` | POMDP experiment: oracle / naive / belief / belief + chance-constraint planners → `results/dynamic_pomdp.csv` |
@@ -42,6 +48,9 @@ python3 scripts/run_dynamic.py --instance instances/large/M-50-50-60-1.txt \
     --scenario damage_50pct --mode so --weights 0,0,1 --time 4 -v
 python3 scripts/run_dynamic.py --instance instances/main/M-15-13-60-2.txt \
     --scenario damage_30pct --mode mo --paired-hv --time 2 -v --output out.json
+# drones visit every victim, with launch/recovery/drop times; hybrid re-planning; Solomon-based instance
+python3 scripts/run_dynamic.py --instance instances/solomon/S-RC-08-1.txt --mode so --weights 0,0,1 \
+    --strategies static,warm,hybrid --drone-model route --setup 1,2,0.1
 ```
 
 ## 2. Model implemented
@@ -73,9 +82,21 @@ The arc matrix may be asymmetric (one-way damage).
 
 The planner optimizes on the belief, while the simulator executes on the truth.
 
-**Second echelon.** Drones fly out and back, $w_i = \lceil d_{\sigma(i)}/UP\rceil\cdot 2t'_{i\sigma(i)}$.
-When $d \le UP$, which holds for every shipped instance, this is the paper's single parallel
-sortie. A demand surge above $UP$ becomes extra sortie waves instead of an infeasibility.
+**Second echelon** (`src/drone_service.py`). The truck's dwell $w_i=W_{i\sigma(i)}(d)$ and the
+delivery time $e_i=a_i+\delta_{i\sigma(i)}(d)$ come from one of two drone models
+(`--drone-model`):
+- `centroid` (default, the paper): drones fly out and back to the cluster centroid,
+  $W=\lceil d/UP\rceil(S_L+2t'+S_R)$ and $\delta=S_L+t'$. When $d\le UP$ and there are no setup
+  times, this is the paper's single parallel sortie. A surge above $UP$ becomes extra waves.
+- `route`: drones deliver to **every victim**. Each cluster is a multi-trip CVRP: a TSP giant
+  tour is split exactly into trips that respect the payload $P$ and the battery. Energy is
+  computed leg by leg, so the drone gets lighter after each drop. The trips are scheduled on the
+  $U$ drones; $W$ is the makespan and $\delta$ the demand-weighted mean drop time.
+- `--setup L,R,τ` adds per-trip launch, recovery (battery swap) and drop times in minutes
+  (Kuo et al. 2022). The experiments use 1, 2, 0.1.
+
+Details are in [`docs/FORMULATION.md`](docs/FORMULATION.md) §5.2–5.2c and
+[`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) §6.
 
 **Drone battery** (`src/drone_energy.py`). The energy of each sortie depends on the flight
 **speed** and the carried **load**. The power model is
@@ -125,7 +146,18 @@ values are comparable across epochs (guide §3.4):
   primary truck is sampled ∝ the disruption score $c_k(t)=\text{norm}(\omega_1 r^{road}_k+\omega_2
   r^{demand}_k+\omega_3 r^{timing}_k)$ (spec eq. 9).
 
-All three strategies share the same t=0 plan, so differences come only from how they react.
+- `hybrid` (Han et al. 2023): first **repair** the plan in force by inserting the new jobs and
+  re-matching only infeasible pairs. If the repair is feasible and the event's impact on its
+  predicted objective is at most `tol` (2%; `hybrid@0.05` = 5%), commit it without searching.
+  Otherwise run the full warm re-optimization.
+
+All strategies share the same t=0 plan, so differences come only from how they react.
+
+**Dynamic degree and plan accuracy.**
+- `--surge-scale s` rescales every surge multiplier, $m\to1+s(m-1)$. The run reports the realized
+  dynamic degree: the share of the final demand that appeared after dispatch.
+- Every run also reports the **plan-vs-actual gap**: the plan's own forecast of $f_1$ and $Z_1$
+  vs. what was realized, at t = 0 and for the last plan (Imran & Won 2024).
 
 **DRL operator controller** (`src/drl_selector.py`, the "DRL" of SR-DRL-DMOEA).
 - A **Double DQN** picks which of the 9 search operators to apply, one decision per segment of 10

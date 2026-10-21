@@ -9,6 +9,9 @@ covers:
   `dynamic_2e_ctvrp_research_guide_dataset_blueprint.md` (§3) and the spec
   `bai_toan_iii_truck_drone.pdf`.
 
+A walk-through of the code itself, file by file, is in
+[`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md).
+
 ---
 
 ## 1. Problem in one paragraph
@@ -141,14 +144,33 @@ belief is the truth at every event, which gives the fully observed dynamic probl
 | `belief` | $\mathbb E[t_{ij}]=t^0_{ij}\sum_s\phi_s b_{ij}(s)$ | expected time under the Bayesian belief |
 | `belief_cc` | $t^0_{ij}\,\phi_{Detour}$ if $b_{ij}(Open)+b_{ij}(Degraded)<\theta$, else $\mathbb E[t_{ij}]$ | **chance constraint** of the proposal (slide 10): a road that is usable with probability below $\theta$ (0.8) is planned as a detour, so routes avoid unreliable roads |
 
-### 5.2 Drone service at a satellite (`dynamic_sim.py`, `dynamic_solver.py`)
+### 5.2 Drone service at a satellite (`drone_service.py`)
+
+The first echelon sees the drones only through three functions of the satellite $i$, the cluster
+$c=\sigma(i)$ and its demand $d$:
+- $W_{ic}(d)$: truck dwell, the drones' makespan;
+- $\delta_{ic}(d)$: delivery offset after the truck's arrival;
+- $u_{ic}(d)$: battery use of the most demanding trip.
+
+$$w_i=W_{i\sigma(i)}\big(d_{\sigma(i)}\big),\qquad e_i=a_i+\delta_{i\sigma(i)}\big(d_{\sigma(i)}\big)$$
+
+There are two models (`--drone-model`).
+
+**Centroid model** (the paper's, the default). All demand is delivered at the centroid:
 
 $$n^{\text{wave}}_i=\left\lceil \frac{d_{\sigma(i)}}{UP}\right\rceil,\qquad
-w_i=n^{\text{wave}}_i\cdot 2\,t'_{i\sigma(i)}$$
+W_{ic}=n^{\text{wave}}_i\,(S_L+2\,t'_{ic}+S_R),\qquad \delta_{ic}=S_L+t'_{ic}$$
 
 The number of drone waves needed is the demand divided by the drones' combined payload, rounded
-up. The truck waits for all waves, each one a round trip. When $d\le UP$ there is one wave, which
-is exactly the static paper's model.
+up. The truck waits for all waves, each one a round trip. When $d\le UP$ and $S_L=S_R=0$ there
+is one wave and no setup, which is exactly the static paper's model.
+
+**Route model** (drones visit every victim): §5.2c.
+
+**Setup times** (Kuo et al. 2022), per drone trip in both models:
+- $S_L$: launch, i.e. loading and take-off clearance;
+- $S_R$: recovery, i.e. landing and battery swap;
+- $\tau$: hover time per drop (route model).
 
 ### 5.2b Drone battery: energy depends on speed and load (`drone_energy.py`)
 
@@ -210,6 +232,45 @@ $n\ge\lceil d/UP\rceil$ with $e_{ij}(v_d,\,d/(U n))\le E(1-\rho)$. This costs ex
 instead of overflying the battery. The planner itself never selects a battery-infeasible pair
 (C4).
 
+### 5.2c Victim-level drone routing: a multi-trip CVRP per cluster (`RouteService`)
+
+Let cluster $c$ have victims $v\in V_c$ with demand $q_v>0$ (zero-demand victims are skipped).
+The drones of satellite $i$ must deliver $q_v$ to every victim, in trips that start and end at
+$i$:
+
+$$\text{trip }T=(v_1,\dots,v_m):\quad \sum_{l=1}^{m}q_{v_l}\le P\qquad\text{(payload)}$$
+
+$$e_T=\frac{\lVert i\,v_1\rVert}{v_d}\,p\Big(\sum_{l\ge1}q_{v_l}\Big)
++\sum_{l=1}^{m-1}\frac{\lVert v_l\,v_{l+1}\rVert}{v_d}\,p\Big(\sum_{r>l}q_{v_r}\Big)
++\frac{\lVert v_m\,i\rVert}{v_d}\,p(0)
++\tau\sum_{l=1}^{m}p\Big(\sum_{r\ge l}q_{v_r}\Big)\;\le\;E(1-\rho)\qquad\text{(battery)}$$
+
+with $p(\ell)=A+B\,\ell/P$, the speed- and load-dependent power of §5.2b at the instance's
+drone speed. The drone takes off with the whole trip load, gets lighter after each drop, and flies
+back empty.
+
+$$\text{busy}(T)=S_L+\frac{\lVert i\,v_1\rVert+\sum_l\lVert v_l v_{l+1}\rVert+\lVert v_m\,i\rVert}{v_d}+m\,\tau+S_R$$
+
+**Solution method** (route-first, cluster-second):
+1. a giant TSP tour of $V_c$ (nearest neighbour + 2-opt), rotated to start next to $i$;
+2. the optimal **split** of the tour into consecutive feasible trips, minimizing
+   $\sum_T\text{busy}(T)$ (dynamic programme
+   $V_{j+1}=\min_{l\le j}V_l+\text{busy}(l..j)$);
+3. trips assigned longest-first to the least busy of the $U$ drones, shortest-first within each
+   drone.
+
+$$W_{ic}=\max_{u=1..U}\sum_{T\in u}\text{busy}(T),\qquad
+\delta_{ic}=\frac{\sum_{v}q_v\,t_v}{\sum_v q_v}$$
+
+Here $t_v$ is the time victim $v$ receives its parcel, measured from the truck's arrival.
+
+$u_{ic}=\max_T e_T/E(1-\rho)$. The pair $(i,c)$ is battery-infeasible iff some victim cannot
+be served even on its own.
+
+**Demand changes.** A cluster demand $d$ scales every victim to $q_v\,d/d_c(0)$. A re-delivery
+job of size $r$ delivers $q_v\,r/d_c(0)$ to every victim. A victim with $q_v>P$ is split into
+several full loads.
+
 ### 5.3 Timeline recursion (truck $k$, from its committed start)
 
 $$a_{\pi_k(1)}=\alpha_k(t)+\mathbb E[t_{\pi_k(0)\pi_k(1)}],\qquad
@@ -218,9 +279,10 @@ a_{\pi_k(p)}=a_{\pi_k(p-1)}+w_{\pi_k(p-1)}+\mathbb E[t_{\pi_k(p-1)\pi_k(p)}]$$
 Each arrival equals the previous arrival, plus the drone waiting time there, plus the driving time.
 The first leg starts at the truck's committed position and available time.
 
-$$e_i=a_i+t'_{i\sigma(i)}$$
+$$e_i=a_i+\delta_{i\sigma(i)}$$
 
-The first delivery happens one drone flight after the truck arrives.
+In the centroid model, delivery happens one drone flight after the truck arrives (plus the launch
+time). In the route model it is the demand-weighted mean drop time (§5.2c).
 
 $$\text{ret}_k=a_{\pi_k(m_k)}+w_{\pi_k(m_k)}+\mathbb E[t_{\pi_k(m_k),\,n+1}]$$
 
@@ -350,7 +412,7 @@ $\lambda^{c}=(1/3,1/3,1/3)$ by default.
 | C2 | $\sigma_t$ is a bijection $F(t)\leftrightarrow M_F(t)$ | each cluster served by exactly one satellite | representation (operators only swap centroids) |
 | C3 | $\sum_{i\in r_k} d_{\sigma(i)}(t)\le Q_k(t)\ \ \forall k\in\mathcal K_A$ | truck capacity, minus what was already handed out | penalty $\max(0,L_k-Q_k)$; feasible-first comparison |
 | C4 | $e_{i\sigma(i)}(v_d,\ell_{\sigma(i)})\le E(1-\rho)\ \ \forall i$ (§5.2b) | each sortie's energy, which depends on speed and load, leaves the safety reserve | infeasible pairs are excluded from σ moves, construction, repair and path relinking; pairs are recomputed each epoch from current demand; any remaining infeasible pair gets a $10^5$ penalty; at execution, extra lighter waves absorb surges on locked pairs |
-| C5 | $d_{\sigma(i)}\le UP$, **relaxed** to waves (§5.2) | drone payload | never infeasible; costs extra waiting |
+| C5 | $d_{\sigma(i)}\le UP$, **relaxed** to waves (§5.2) | drone payload | never infeasible; costs extra waiting. In the route model, payload $\le P$ and battery hold **per trip** by construction of the split (§5.2c), and C4 becomes "every victim reachable alone" |
 | C6 | $\lvert r_k\rvert\ge 1$ if truck $k$ starts at the depot ($t=0$ only) | no idle truck, as in the paper's MILP | penalty $10^5$ |
 | C7 | locked part of the plan unchanged | cannot undo the past | the residual problem contains only free satellites; checked by `check_plan` after every re-plan |
 | C8 | each route starts at $v_{\pi_k(0)}(t)$ at $\alpha_k(t)$ and ends at $v_{n+1}$ | trucks continue from where they are | built into the timeline recursion |
@@ -431,6 +493,40 @@ it late. Also reported:
 | re-deliveries | $\lvert\mathcal J\rvert$ executed | number of re-delivery stops made |
 
 ---
+
+### 5.10 Hybrid re-planning trigger (strategy `hybrid`; Han et al. 2023)
+
+At event $t_e$ the plan in force $S^{prev}$ predicted objectives $o^{prev}$. Its **repair**
+$S^{rep}$ keeps the suffix, inserts the new re-delivery jobs at their cheapest positions, and
+re-matches only infeasible pairs. It is evaluated under the new information:
+
+$$\Delta=\frac{1}{\sum_m\lambda_m}\sum_m\lambda_m\frac{o^{rep}_m-o^{prev}_m}{\lvert o^{prev}_m\rvert}$$
+
+$\Delta$ is the event's impact on the current plan.
+
+$$\text{commit }S^{rep}\text{ without search}\iff \text{viol}(S^{rep})=0\ \wedge\ \Delta\le\text{tol}
+\qquad(\text{tol}=2\%\text{ by default, }5\%\text{ as }\texttt{hybrid@0.05})$$
+
+Otherwise the full warm re-optimization runs.
+
+### 5.11 Dynamic degree (surge intensity)
+
+`surge_scale` $s$ rescales every surge multiplier: $m\to1+s(m-1)$. The **realized dynamic
+degree** is
+
+$$\text{DoD}=\frac{\sum_{\text{events}}\sum_c \text{granted surge}_c}{D^{final}}$$
+
+the share of the final demand that only appeared after dispatch. It is capped by the demand rule
+(§5.4a).
+
+### 5.12 Plan-vs-actual discrepancy (Imran & Won 2024)
+
+$$\text{gap}_0(f)=\frac{f^{pred}_{t=0}-f^{real}}{f^{real}},\qquad
+\text{gap}_{last}(f)=\frac{f^{pred}_{\text{last epoch}}-f^{real}}{f^{real}},\qquad f\in\{f_1,f_3\}$$
+
+- $\text{gap}_0$: how far the dispatch-time plan's own forecast is from what happened.
+- $\text{gap}_{last}$: the same for the last plan in force. It is $0$ under full information and
+  measures the belief's error under partial information.
 
 ## 6. Generating the dynamic dataset from the static instances
 
@@ -519,6 +615,25 @@ python3 scripts/run_dynamic.py --instance instances/main/M-09-09-60-1.txt \
     --events my.events.json --scenario damage_30pct -v
 ```
 
+### 6.1 Second benchmark: instances derived from the Solomon VRPTW set
+
+`scripts/generate_solomon_instances.py` converts the 100-customer Solomon files
+(`instances/solomon/raw/`) into instances in the format above (`instances/solomon/`):
+
+| Solomon element | 2-echelon element |
+|---|---|
+| customer $(x,y,q)$ | victim at $(10x,10y)$ (1 Solomon unit = 100 m; area 10 km × 10 km), demand $q$ |
+| depot | truck depot |
+| — | $n\in\{8,12\}$ clusters by k-means, frozen in `<name>.clusters.json` |
+| — | satellites: one per cluster, 1.0–2.5 km from its centroid in a random direction |
+| time windows, service times | dropped. One cluster's windows span most of the day (C101: about 60-wide windows spread over 690–1,110 of 1,236 units), so one truck stop cannot meet them |
+| $Q=200$ | $K=2$ ($n=8$) or $3$ ($n=12$) trucks, $Q=\lceil1.25D/K\rceil$ |
+| — | $U=3$ drones, $P=60$, $v_t=40$, $v_d=60$ km/h |
+
+Only four geometries are distinct: C1, C2, R (R1 = R2) and RC (RC1 = RC2). This gives 4 × 2 sizes
+× 2 satellite seeds = 16 instances, `S-<geom>-<n>-<seed>`. Their events are produced by the same
+generator (§6) into `instances/solomon_events/`.
+
 ---
 
 ## 7. Changes compared with the first version of the dynamic problem
@@ -545,12 +660,18 @@ The first version is the guide's §3 formulation and §5.3 generator, together w
 | Empty truck at t=0 | not discussed | penalty: every depot-start truck visits ≥1 satellite | matches the static MILP, so t=0 reproduces the paper |
 | Search operators | N1–N7 | N1–N7 plus **destroy-repair**; moves focused on routes with high $c_k(t)$ | spec action set (eq. 11) and segment idea (eq. 9) |
 | Drone battery | proposal: energy $\propto k_1(W+L)+k_2v^3+k_3\tilde w^2$, sequential drain, probabilistic reserve; guide: fixed time budget $2t'\le T_d^{\max}$ | **energy model depending on speed and load** (same form as the proposal, wind optional), deterministic reserve $\rho$ | keeps the proposal's physics while staying an O(1) check per sortie; the fixed time budget never bound on these instances and gave faster drones more range |
-| Vehicle crashes, variable drone speed, multi-drop sorties | in the proposal slides | **not modelled** (vehicles always operational, fixed $v_d$ per instance, out-and-back sorties) | simplifications recommended by guide §2 |
+| Vehicle crashes, variable drone speed, multi-drop sorties | in the proposal slides | crashes and variable speed **not modelled**; multi-drop sorties only in the route model (§5.2c) | simplifications recommended by guide §2 |
 | Dynamic MILP | $x\le\xi$, recomputed $H(t)$ | **not implemented** (no Gurobi licence here) | listed as future work |
 | When demand may change | proposal: $h_i(t^+)=[\mathbb E\tilde h_i+\lambda_i-y]^+$ at any time | **only before or during service**, capped by the serving truck's remaining capacity (§5.4a) | a surge after the truck has left would require new trips and makes the model much harder |
 | Partial observability | proposal: continuous capacity $\tilde\eta_{ij}\in[0,1]$, belief density $b_t(\eta)$, integral for $\mathbb E[t]$ | **3 discrete states**, Markov prediction, **noisy reports with Bayes update**, exact observation on traversal; demand belief $\mathcal N(\mu,\sigma^2)$ (§5.1, §5.4c) | the integral diverges near $\eta=0$ (guide §2); the discrete belief keeps the POMDP but stays exact and cheap |
 | Safety threshold | proposal: route only if $\sum_{Open,Degraded}b_{t+1\mid t}\ge\theta$ | `belief_cc` planner: roads below $\theta$ are planned as detours (soft) | keeps every satellite reachable while still steering routes away from unreliable roads |
 | DRL controller | proposal: DRL selects repair operators | **Double DQN** over a 23-feature state, trained on separate instances (§5.8) | spec eqs. 10–12 |
+| Second echelon | drones fly to the cluster **centroid** (paper) | unchanged by default; optional **victim-level drone routing** (multi-trip CVRP per cluster, energy leg by leg, makespan of $U$ drones) (§5.2c) | the centroid shortcut underestimates drone time (+28% from routing alone, +49–95% with setup times) |
+| Drone setup times | none | optional launch $S_L$, recovery $S_R$ (battery swap), drop $\tau$ per trip (§5.2) | Kuo et al. (2022) |
+| Re-planning trigger | re-optimize at every event | optional `hybrid`: repair first, search only if the event's impact $\Delta$ exceeds tol (§5.10) | Han et al. (2023); saves CPU when an event barely matters |
+| Dynamic degree | fixed surge multipliers | `surge_scale` and realized DoD (§5.11) | sensitivity to how much demand is revealed late |
+| Plan accuracy | not measured | $\text{gap}_0$, $\text{gap}_{last}$ (§5.12) | Imran & Won (2024) |
+| Benchmarks | 12 instances from the paper's set | plus 16 Solomon-derived instances (§6.1) | a well-known geometry family (random / clustered / mixed) |
 
 **Remaining limitations.**
 - A truck that is already driving back to the depot is retired and is not used for re-deliveries,
@@ -558,4 +679,7 @@ The first version is the guide's §3 formulation and §5.3 generator, together w
 - Under demand noise, a truck can arrive with less than the true demand. The shortfall is
   re-delivered at the next event, but after the last event it stays unmet: there is no second
   trip from the depot.
-- Vehicle crashes, variable drone speed, multi-drop sorties and the MILP are still not modelled.
+- Vehicle crashes, variable drone speed and the MILP are still not modelled. Multi-drop sorties
+  exist only in the route model.
+- Route model: a surge or re-delivery is spread over all victims of the cluster in proportion to
+  their base demand, so a small re-delivery still visits every victim.

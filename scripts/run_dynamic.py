@@ -16,6 +16,12 @@ Options:
     --paired-hv   at every epoch also solve the warm strategy's residual problem cold
                   and report the hypervolume of both archives
     --output      write full JSON (metrics, per-epoch records, final plan)
+    --drone-model centroid (paper: drones fly to the cluster centroid) | route (drones visit
+                  every victim: multi-trip CVRP per cluster)
+    --setup       drone launch,recovery,drop times in minutes, e.g. 1,2,0.1 (default 0,0,0)
+    --surge-scale dynamic degree: every surge multiplier m becomes 1 + s (m - 1)
+    --strategies  may include hybrid (repair first, search only if needed) and hybrid@0.05
+    --no-road-events   ignore road damage (demand dynamics only)
 """
 import argparse
 import json
@@ -27,6 +33,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from dynamic_runner import load_world, run_closed_loop  # noqa: E402
 from dynamic_solver import ReoptConfig  # noqa: E402
+from drone_service import SetupTimes  # noqa: E402
 
 
 def main():
@@ -51,13 +58,20 @@ def main():
     ap.add_argument("--paired-hv", action="store_true")
     ap.add_argument("--no-recourse", action="store_true",
                     help="disable re-delivery jobs (surges after delivery then stay unmet)")
+    ap.add_argument("--drone-model", choices=("centroid", "route"), default="centroid")
+    ap.add_argument("--setup", default="0,0,0", help="drone launch,recovery,drop minutes")
+    ap.add_argument("--surge-scale", type=float, default=1.0)
+    ap.add_argument("--hybrid-tol", type=float, default=0.02)
+    ap.add_argument("--no-road-events", action="store_true")
     ap.add_argument("--output", default=None)
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
     os.chdir(ROOT)
     name = os.path.splitext(os.path.basename(args.instance))[0]
-    events = args.events or os.path.join("instances", "dynamic_events", f"{name}.events.json")
+    ev_dir = "solomon_events" if os.path.basename(os.path.dirname(os.path.abspath(args.instance))) == "solomon" \
+        else "dynamic_events"
+    events = args.events or os.path.join("instances", ev_dir, f"{name}.events.json")
     world = load_world(args.instance, events, args.scenario)
 
     w = tuple(float(x) for x in args.weights.split(",")) if args.weights else None
@@ -72,14 +86,19 @@ def main():
                           selector=args.selector, paired_hv_check=args.paired_hv, verbose=args.verbose,
                           recourse=not args.no_recourse, planner=args.planner, theta=args.theta,
                           reveal_prob=args.reveal, obs_accuracy=args.accuracy,
-                          demand_noise=args.demand_noise, selector_model=args.selector_model)
+                          demand_noise=args.demand_noise, selector_model=args.selector_model,
+                          drone_model=args.drone_model,
+                          setup=SetupTimes.from_minutes(*map(float, args.setup.split(","))),
+                          surge_scale=args.surge_scale, hybrid_tol=args.hybrid_tol,
+                          road_events=not args.no_road_events)
     print(f"\n{name} / {args.scenario}  (realized after executing the whole horizon)")
     print(f"{'strategy':10s} {'f1 prio-wtd delivery':>21s} {'f2 spread':>10s} {'f3 Z1':>9s} "
-          f"{'C_del':>7s} {'unmet%':>7s} {'re-deliv':>8s} {'replan s':>9s}")
+          f"{'C_del':>7s} {'unmet%':>7s} {'re-deliv':>8s} {'replan s':>9s} {'drone trips':>11s} {'repaired':>8s}")
     for s, r in out.items():
         m = r["metrics"]
         print(f"{s:10s} {m['f1']:21.4f} {m['f2']:10.4f} {m['f3']:9.4f} {m['C_del']:7.3f} "
-              f"{100 * m['unmet_ratio']:7.2f} {m['n_redeliveries']:8d} {m['replan_cpu_s']:9.2f}")
+              f"{100 * m['unmet_ratio']:7.2f} {m['n_redeliveries']:8d} {m['replan_cpu_s']:9.2f} "
+              f"{m['total_drone_trips']:11d} {m['n_repaired']:8d}")
     if args.output:
         with open(args.output, "w") as f:
             json.dump(dict(instance=name, scenario=args.scenario, seed=args.seed, results=out), f, indent=1,

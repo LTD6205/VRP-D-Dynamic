@@ -6,12 +6,15 @@ truck (depots implicit) plus the satellite -> centroid assignment sigma. The
 simulator executes it against the TRUE road network and demand process:
 
     a_p = a_{p-1} + w_{p-1} + t_true(prev, cur, departure time)
-    w_i = waves_i * 2 t'_{i sigma(i)},  waves_i = ceil(d_sigma(i)(a_i) / (U P))
-    e_i = a_i + t'_{i sigma(i)}         (first drone delivery at the centroid)
+    w_i = W_{i sigma(i)}(d_sigma(i)(a_i))      truck dwell = drone makespan
+    e_i = a_i + delta_{i sigma(i)}(d)          delivery time used in f1
 
-`waves` generalises the paper's single parallel sortie (waves = 1 whenever
-d <= U*P, which holds for every shipped instance) so that a demand surge above
-U*P is served by repeated sorties instead of making the instance infeasible.
+W and delta come from the second-echelon drone service model (drone_service.py):
+  centroid (paper): W = waves (S_L + 2 t' + S_R), delta = S_L + t',
+                    waves = ceil(d / (U P)) -- the paper's single parallel sortie
+                    generalised so that a surge above U*P means repeated sorties;
+  route           : drones visit every victim (multi-trip CVRP per cluster),
+                    W = makespan of the U drones, delta = demand-weighted mean drop time.
 
 `commit(timeline, t_event)` freezes history (research guide Sec. 4.1): every
 satellite a truck has reached by t_event is locked, a truck driving towards a
@@ -69,7 +72,7 @@ class SatRecord:
     centroid: int
     demand_at_arrival: float
     delivered: float
-    waves: int
+    waves: int                   # drone waves (centroid model) / drone trips (route model)
     priority: float
     battery_use: float = 0.0     # sortie energy / usable battery (<= 1 means feasible)
     host: int = 0                # satellite the drones flew from (== item for a satellite)
@@ -113,7 +116,7 @@ class Snapshot:
 
 class Simulator:
     def __init__(self, n: int, Q: float, UP: float, drone_time: np.ndarray,
-                 net: RoadNetwork, demand: DemandProcess, battery=None):
+                 net: RoadNetwork, demand: DemandProcess, battery=None, service=None):
         self.n = n
         self.vend = n + 1
         self.Q = Q
@@ -122,27 +125,10 @@ class Simulator:
         self.net = net
         self.demand = demand
         self.battery = battery       # drone_energy.DroneBattery or None (no battery check)
-
-    def waves(self, d: float) -> int:
-        return max(1, int(math.ceil(d / self.UP - 1e-9)))
-
-    def _battery_use(self, fly: float, d: float, nw: int) -> float:
-        if self.battery is None:
-            return 0.0
-        b = self.battery
-        lf = min(1.0, d / (b.U * nw * b.P))
-        return float(b.model.sortie_energy(fly, b.v_d, lf)) / b.model.usable
-
-    def _waves_battery(self, fly: float, d: float):
-        """Waves actually flown: ceil(d / UP), plus extra, lighter waves if the per-drone
-        load would exceed the battery (e.g. a surge after the pairing was locked). Operators
-        split the load rather than overfly the battery; it costs extra waiting time."""
-        nw = self.waves(d)
-        use = self._battery_use(fly, d, nw)
-        while use > 1.0 + 1e-12 and nw < 100:
-            nw += 1
-            use = self._battery_use(fly, d, nw)
-        return nw, use
+        if service is None:
+            from drone_service import CentroidService
+            service = CentroidService(drone_time, battery, UP)
+        self.service = service       # drone_service.CentroidService | RouteService
 
     def simulate(self, plan: Plan) -> Timeline:
         sats: Dict[int, SatRecord] = {}
@@ -162,13 +148,13 @@ class Simulator:
                     c = plan.sigma[item]
                     d = float(self.demand.demand_at(t)[c - 1])
                 w = float(self.demand.priority_at(t)[c - 1])
-                fly = float(self.tdm[loc - 1, c - 1])
-                nw, use = self._waves_battery(fly, d)
+                # drones serve the cluster (extra, lighter waves if a locked pairing became too heavy)
+                ds = self.service.service(loc, c, d, split=True)
                 delivered = max(0.0, min(d, self.Q - load))
                 load += delivered
-                rec = SatRecord(k, pos, t, nw * 2 * fly, t + fly, c, d, delivered, nw, w, use, loc)
+                rec = SatRecord(k, pos, t, ds.wait, t + ds.offset, c, d, delivered, ds.trips, w, ds.use, loc)
                 (jobs if job else sats)[item] = rec
-                t += nw * 2 * fly
+                t += ds.wait
                 prev = loc
             dt = self.net.true_time(prev, self.vend, t)
             legs.append((prev, self.vend, t, t + dt, self.vend))
