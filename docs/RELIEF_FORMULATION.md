@@ -20,6 +20,12 @@ The dynamics:
 
 Re-planning is drone-aware: it can move unserved victims to another satellite in drone range, re-solve the drone plans that change, and extend the queued trips at a satellite still being served. Demand is fixed in this version. The paper sets out the model, its formulation and a solution method; experiments are planned for the next version.
 
+### Overview
+
+*(Figure: overview of the relief system and how it is planned. See the online doc.)*
+
+Panel A shows trucks driving over open, damaged and closed roads to staging satellites, where drones fly multi-drop trips to victims while the truck waits. Panel B shows how the two levels are planned at every time step: drone plans give the truck search its dwell times, and the truck route tells each drone plan how much priority is waiting further along the route.
+
 ## 1. Introduction
 
 In the first days after a flood or an earthquake, relief must reach every affected person, and the most urgent first. Damaged roads make both goals hard. A plan made in the morning may route trucks over a bridge that is closed by noon.
@@ -117,15 +123,15 @@ Truck travel between two nodes follows the fastest path over usable roads at the
 
 **Satellites and victims.**
 
-- Victims V are the people, households or shelters to be served. Victim v has a location, a demand q\_v and a priority class.
+- Victims V are the people, households or shelters to be served. Victim v has a location, a demand q\_v and a priority class. **Each demand fits in one drone: q\_v ≤ P.** So every victim is served by one drone visit and never revisited. A larger demand point, such as a shelter, is split at instance generation into co-located victims of at most P each.
 - A satellite s *covers* victim v if a drone can fly from s to v and back on one battery with v's load.
 - Every victim is assigned to exactly one covering satellite, and that satellite is visited by a truck carrying the victim's demand.
 - At instance generation we require every victim to be covered by at least two satellites, so that a re-assignment is possible when a satellite is cut off.
 
 **Drones.** Each truck carries U identical drones with payload P, battery capacity E and speed v\_d. At a satellite:
 
-- **Trips.** A drone flies multi-drop trips, each starting and ending at the satellite, with total load ≤ P and energy within the battery. A trip has a launch time S\_L, a recovery time S\_R and a drop time τ\_d at each victim.
-- **Recharge.** Between two consecutive trips of the same drone there is a fixed recharge interval t\_r. Batteries recharge on the truck while it drives, so no recharge is needed before the first trip at a satellite.
+- **Trips.** A drone flies multi-drop trips, each starting and ending at the satellite, with total load ≤ P and energy within the battery. A trip has a launch time S\_L, a recovery time S\_R and a drop time τ\_d at each victim. Each victim is on exactly one trip, so there are no split deliveries.
+- **Recharge.** A drone needs a recharge interval t\_r between two trips. It recharges on the truck, both at the satellite and **while the truck drives**, so time on the road counts toward t\_r. The truck never waits at a satellite just to recharge: drones back from their last trips charge on the next road. If that drive takes at least t\_r, they arrive at the next satellite fully charged (Section 4.2).
 - **Dwell.** The truck waits until its last drone has landed. This waiting time is the satellite's dwell W\_s.
 
 **Priorities and deadlines.** Each victim has a priority weight w\_v and a target time D\_v set by its class:
@@ -203,11 +209,21 @@ d_\rho = S_L + \sum_{\text{legs } l} \frac{\text{len}_l}{v_d} + m\,\tau_d + S_R
 
 Here ℓ\_l is the load still on board along leg l, falling after each drop. Let o\_ρv be the time from launch until v's drop.
 
-**Schedule with recharge.** Drone u flies its trips ρ\_u1, …, ρ\_un in order. Trip starts and victim offsets are:
+Each victim is on exactly one trip. Because q\_v ≤ P and a\_vs = 1, a trip to v alone is always feasible, so every assigned victim set V\_s has a feasible drone plan.
+
+**Schedule with recharge en route.** Drone u flies its trips ρ\_u1, …, ρ\_un in order. Let λ\_u be the time drone u landed from its last trip at the truck's previous stop (λ\_u = −∞ when leaving the depot fully charged). Since the drone keeps charging on the road, its first launch at s waits only for whatever recharge is still missing on arrival. With times b measured from the arrival A\_s:
 
 ```latex
-b_{u1} = 0, \qquad b_{u,\ell+1} = b_{u\ell} + d_{\rho_{u\ell}} + t_r, \qquad \delta_v = b_{u\ell} + o_{\rho_{u\ell} v} \;\; (v \in \rho_{u\ell})
+b_{u1} = \max\big(0,\; \lambda_u + t_r - A_s\big), \qquad b_{u,\ell+1} = b_{u\ell} + d_{\rho_{u\ell}} + t_r, \qquad \delta_v = b_{u\ell} + o_{\rho_{u\ell} v} \;\; (v \in \rho_{u\ell})
 ```
+
+The drone landed before the truck left the previous stop p, at A\_p + W\_p, so:
+
+```latex
+b_{u1} \le \max\big(0,\; t_r - c_{ps}\big)
+```
+
+Whenever the drive between consecutive satellites takes at least t\_r, every drone arrives fully charged and b\_u1 = 0. Only short hops between nearby satellites link one satellite's dwell to the next. The truck evaluation handles this exactly, by carrying the drones' landing times λ\_u along the route.
 
 The dwell is the time until the last drone lands:
 
@@ -469,7 +485,7 @@ No results are reported yet. The plan below is meant to test whether drone-aware
 
 **Instances.** Built from the existing 2E-CTVRP set and the Solomon-derived set:
 
-- **Victims:** keep the coordinates and demands. Assign priority classes at random (20% critical, 30% high, 50% normal), or by distance from a damage centre.
+- **Victims:** keep the coordinates and demands, and split any victim with q\_v > P into co-located victims of at most P each. Assign priority classes at random (20% critical, 30% high, 50% normal), or by distance from a damage centre.
 - **Satellites:** keep them as candidate staging sites. Add sites until every victim is covered by at least two.
 - **Road graph:** a sparse graph over the depot, the satellites and grid junctions, so that a closure forces a real detour. The complete graph is kept as a simpler variant.
 - **Fleet:** truck capacity set to 1.15 × total demand / K. U = 3 drones per truck.
