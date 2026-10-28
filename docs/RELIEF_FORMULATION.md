@@ -189,7 +189,7 @@ These are default values. If a critical victim cannot be reached by Dᵥ even wi
 **Dynamics.** Time is divided into steps of Δt = 1 h (30 min as a variant).
 
 - **Changes.** Road states change only at step boundaries. Roads inside a flood zone follow a Markov chain over {open, damaged, closed}, and closed roads may reopen. Roads outside the zone stay open.
-- **Frozen roads.** A road that a truck has already driven, or is driving at the boundary, never changes again. Its state is fixed from that moment.
+- **Frozen roads.** A road that a truck has already driven, or is driving at the boundary, never changes again. Its state is fixed from that moment. Likewise, once a truck reaches a satellite, the victims served there and their drone trips are fixed until the last drone lands.
 - **Information.** Changes are known to the planner as soon as they occur.
 - **Re-planning.** It runs at every boundary, on everything not yet done or under way.
 
@@ -254,7 +254,7 @@ A loaded drone drains faster, so the reachable distance shrinks with the load an
 R_1 = v_a \cdot \frac{1 - r_{\min} - e_{lr} - p(1)\,\kappa}{p(1) + p(0)}
 ```
 
-With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, rₘᵢₙ = 0.2 and vₐ = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 15 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every Vₛ has a feasible drone plan.
+With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, rₘᵢₙ = 0.2 and vₐ = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 15 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every Vₛ has a feasible drone plan. Coverage depends only on fixed locations and the battery model, so aᵥₛ is computed once when the instance is generated (one distance check per victim–satellite pair, e.g. 100 × 25 = 2,500 checks) and never changes during operations: road damage affects only the trucks.
 
 **Schedule with instant battery swaps.** Drone u flies trips ρᵤ₁, …, ρᵤₙ back to back. With times measured from the truck's arrival:
 
@@ -361,7 +361,7 @@ Each step checks how much the road changes hurt the current plan, and only a lar
 **Flood zone.**
 
 - **Centre:** the location of a randomly chosen victim, jittered by up to 5% of the side and clipped to the map, so it always lies inside the area and where people are.
-- **Radius:** it is set so that about 30% of the roads have their midpoint inside the zone.
+- **Radius:** it is set so that about 30% of the roads are in the zone. A road is in the zone if any part of it lies within the radius of the centre, so a road with only one end inside, or one that merely passes through, is affected too.
 - Roads outside the zone stay open.
 
 **Initial state.** At t = 0, each zone road's state is drawn independently from the long-run mix of the chosen intensity (the last column below), so the first plan already faces damage and the damage level stays stable on average.
@@ -393,7 +393,7 @@ The state at tₖ is:
 | Truck mode at tₖ | Locked | Free point |
 | --- | --- | --- |
 | Driving road (i, j) | The road and its arrival time at j | Node j, at that arrival time |
-| Dwelling at satellite s | Drone trips in the air, and the victims on them | s, as soon as the trips in the air land; queued trips stay open |
+| Dwelling at satellite s | The satellite's whole drone plan: its victims, trips and their order | s, when its last drone lands |
 | Reloading at the depot | The reload | Depot, at the end of the reload |
 | Waiting at the depot or finished | Nothing | Depot, now |
 
@@ -405,7 +405,7 @@ The residual problem P(tₖ) is the model of Section 4 restricted to what remain
 
 - **Trucks** start at their free points, with the parcels still on board. They may finish their current trip, return and reload for further trips.
 - **Satellites** are the unvisited candidates, plus each active satellite, which stays first on its truck.
-- **Victims** are those not yet served. Any of them may move to another satellite that covers it.
+- **Victims** are those not yet served and not assigned to an active satellite. Any of them may move to another satellite that covers it.
 
 Arrival times start from the free point (node hₖ, time φₖ):
 
@@ -416,7 +416,7 @@ A_j \ge \varphi_k + c_{h_k j}(t_k) - M\,(1 - x_{h_k j k r})
 The drone level is re-planned with the trucks:
 
 1. **Re-solved drone plans.** A satellite whose victim set changes, or whose route position changes Ω⁺ₛ, gets its drone plan re-solved. The truck problem then sees the new Wₛ and δᵥ.
-2. **Extended service at an active satellite.** If the dwelling truck has spare parcels, unserved victims that this satellite covers can be added to its queued trips. The truck waits longer, but no satellite is revisited.
+2. **Frozen service at an active satellite.** Once a truck reaches a satellite, that satellite's victims and drone plan are fixed until its last drone lands. Re-planning never touches them; it only reshapes satellites that no truck has reached yet.
 3. **Critical-first ordering.** Drone plans at satellites with critical victims are re-ordered so critical drops come first when their deadlines are tight.
 
 ### 5.4 One re-planning step
@@ -681,7 +681,7 @@ All comparisons are paired: the same instance and road seed for every strategy, 
 
 This version is deliberately simple. We would add extensions in this order:
 
-- **Demand changes.** Demand is fixed at one parcel per victim. Growing demand, or newly reported victims, fits the extended-service mechanism of Section 5.3.
+- **Demand changes.** Demand is fixed at one parcel per victim. Growing demand, or newly reported victims, could be handled by re-opening the not-yet-launched trips of an active satellite.
 - **Partial information.** Road states are known as soon as they change. Noisy reports, a belief over road states and robust re-planning are a natural next step.
 - **Battery logistics.** Swaps are instant and spares unlimited. A finite stock of batteries charged on the truck would add a resource constraint.
 - **Drone physics.** The drain per minute is held at its cruise value, and wind, weather and no-fly zones are ignored. Drones always return to their own truck.
