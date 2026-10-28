@@ -441,6 +441,10 @@ The drone level is re-planned with the trucks:
 
 We solve each problem P(t\_k) by decomposition. A fast drone solver gives every satellite its dwell and victim offsets. An adaptive large neighbourhood search (ALNS) over truck trips and victim assignments calls it through a cache. The same search builds the first plan at t = 0, and is warm-started at every L2 re-plan.
 
+*(Figure: solution framework, showing the optimizer, the simulator and the two learned policies. See the online doc.)*
+
+After the first plan, each hour runs the same loop. Roads change; the re-planning policy picks a level; for L1 or L2 the optimizer rebuilds the plan, with the ALNS calling the drone solver for every satellite it changes; the plan is committed until the next hour. The two learned components, shaded, only choose levels and operators.
+
 ### 6.1 Drone solver
 
 For a satellite s with victims V\_s:
