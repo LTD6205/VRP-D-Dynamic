@@ -139,7 +139,7 @@ We follow the second line: learning decides *how* to re-optimize, while the opti
 
 A relief operation starts at time 0 from one depot with K trucks, each carrying U drones. It ends when every victim has been served and every truck is back at the depot.
 
-**Road network and speeds.** Trucks drive on a road graph G = (N, E) over the depot, the satellites and junctions, at a constant speed v\_t = 40 km/h. Road e has a base travel time τ⁰ₑ and a state σₑ(t):
+**Road network and speeds.** Trucks drive on a road graph G = (N, E) over the depot, the satellites and junctions, at a constant speed vₜ = 40 km/h. Road e has a base travel time τ⁰ₑ and a state σₑ(t):
 
 | State | Travel time | Meaning |
 | --- | --- | --- |
@@ -153,7 +153,7 @@ Trucks follow the fastest path at the current states. Because no road is impassa
 
 - Each truck carries at most Q parcels.
 - A trip leaves the depot, visits one or more satellites and returns.
-- After returning, a truck may reload (time t\_load) and start another trip.
+- After returning, a truck may reload (time θ) and start another trip.
 - Each satellite is visited **at most once over the whole operation**. There are no revisits and no second deliveries to the same satellite.
 - Drones and batteries do not count toward Q.
 
@@ -169,22 +169,22 @@ Trucks follow the fastest path at the current states. Because no road is impassa
 - Satellite s *covers* victim v if their distance is at most R₁, the guaranteed single-parcel round-trip range (Section 4.2). Victims may only be served from satellites that cover them.
 - The generator ensures that every victim is covered by at least two candidates (Section 8).
 
-**Drones and batteries.** Drones fly at a constant speed v\_d = 60 km/h.
+**Drones and batteries.** Drones fly at a constant speed vₐ = 60 km/h.
 
 - **Trips.** Each trip starts and ends at the satellite, carries at most P parcels, and must be battery-feasible. Battery drain per minute grows with the load on board, so a loaded drone's range is shorter. After each drop the drone is lighter and its range grows.
-- **Times.** A trip has launch S\_L, recovery S\_R and drop time τ\_d per victim.
+- **Times.** A trip has launch Sₗ, recovery Sᵣ and drop time κ per victim.
 - **Batteries.** Batteries are swapped **instantly**, and spare batteries are unlimited, so a drone can launch again as soon as it lands.
-- **Dwell.** The truck waits until its last drone has landed. This waiting time is the satellite's dwell W\_s.
+- **Dwell.** The truck waits until its last drone has landed. This waiting time is the satellite's dwell Wₛ.
 
 **Priority classes.**
 
-| Class | Weight w\_v | Target D\_v | Treatment |
+| Class | Weight wᵥ | Target Dᵥ | Treatment |
 | --- | --- | --- | --- |
 | Critical (injured, medical needs) | 5 | 2 h | Deadline with a dominant penalty |
 | High (children, elderly, isolated) | 2 | 4 h | Soft target, lateness penalized |
 | Normal | 1 | 8 h | Soft target, lateness penalized |
 
-These are default values. If a critical victim cannot be reached by D\_v even with a dedicated truck and drone, the generator extends its deadline (Section 8).
+These are default values. If a critical victim cannot be reached by Dᵥ even with a dedicated truck and drone, the generator extends its deadline (Section 8).
 
 **Dynamics.** Time is divided into steps of Δt = 1 h (30 min as a variant).
 
@@ -208,29 +208,29 @@ This section states the problem at one decision time, with road states known. Se
 | r = 1, …, R̄ | Trip index of a truck |
 | U, Q | Drones per truck, truck capacity in parcels |
 | q, P | Parcel weight (kg), drone payload (parcels) |
-| w\_v, D\_v | Priority weight and target time of victim v |
-| a\_vs | 1 if satellite s covers victim v (distance ≤ R₁) |
-| c\_ij(t) | Fastest truck time from i to j at time t (always finite) |
-| t\_load | Reload time at the depot between truck trips |
-| S\_L, S\_R, τ\_d | Drone launch, recovery and drop times |
-| η, w₀, E, r\_min | Energy rate per kg-minute, empty drone mass, battery capacity, reserve |
-| v\_t, v\_d | Truck speed (40 km/h), drone speed (60 km/h) |
-| M\_D, π\_L | Critical-deadline penalty, lateness weight |
-| c\_T, c\_D, λ | Costs of truck driving and drone energy, and their weight |
+| wᵥ, Dᵥ | Priority weight and target time of victim v |
+| aᵥₛ | 1 if satellite s covers victim v (distance ≤ R₁) |
+| cᵢⱼ(t) | Fastest truck time from i to j at time t (always finite) |
+| θ | Reload time at the depot between truck trips |
+| Sₗ, Sᵣ, κ | Drone launch, recovery and drop times |
+| η, w₀, E, rₘᵢₙ | Energy rate per kg-minute, empty drone mass, battery capacity, reserve |
+| vₜ, vₐ | Truck speed (40 km/h), drone speed (60 km/h) |
+| Π, πₗ | Critical-deadline penalty, lateness weight |
+| cₜ, cₐ, λ | Costs of truck driving and drone energy, and their weight |
 
 The main decision variables are:
 
-- y\_vs ∈ {0, 1}: victim v is served from satellite s (allowed only if a\_vs = 1);
-- z\_s ∈ {0, 1}: satellite s is used;
-- x\_ijkr ∈ {0, 1}: truck k drives from i to j on its trip r;
-- u\_kr ∈ {0, 1}: truck k makes a trip r;
-- α\_kr, ω\_kr: start and return times of truck k's trip r;
-- A\_s, W\_s: truck arrival and dwell at satellite s;
-- T\_v: time victim v receives its parcel.
+- yᵥₛ ∈ {0, 1}: victim v is served from satellite s (allowed only if aᵥₛ = 1);
+- zₛ ∈ {0, 1}: satellite s is used;
+- xᵢⱼₖᵣ ∈ {0, 1}: truck k drives from i to j on its trip r;
+- uₖᵣ ∈ {0, 1}: truck k makes a trip r;
+- αₖᵣ, ωₖᵣ: start and return times of truck k's trip r;
+- Aₛ, Wₛ: truck arrival and dwell at satellite s;
+- Tᵥ: time victim v receives its parcel.
 
 ### 4.2 Drone subproblem at a satellite
 
-Given the victims V\_s = {v : y\_vs = 1}, the drones solve a multi-trip CVRP.
+Given the victims Vₛ = {v : yᵥₛ = 1}, the drones solve a multi-trip CVRP.
 
 **Battery drain depends on load.** With n parcels on board, a drone uses this fraction of the battery per minute:
 
@@ -238,12 +238,12 @@ Given the victims V\_s = {v : y\_vs = 1}, the drones solve a multi-trip CVRP.
 p(n) = \frac{\eta\,(w_0 + n\,q)}{E}
 ```
 
-**Trips.** A trip ρ = (v₁, …, v\_m) visits m ≤ P victims and returns. Let n\_l be the number of parcels on board along leg l, which falls by one after each drop, and let e\_LR be the energy for launch and landing. The trip's duration d\_ρ and battery constraint are:
+**Trips.** A trip ρ = (v₁, …, vₘ) visits m ≤ P victims and returns. Let nₗ be the number of parcels on board along leg l, which falls by one after each drop, and let eₗᵣ be the energy for launch and landing. The trip's duration dᵨ and battery constraint are:
 
 ```latex
-d_\rho = S_L + \sum_{l} \frac{\text{len}_l}{v_d} + m\,\tau_d + S_R,
+d_\rho = S_l + \sum_{l} \frac{\text{len}_l}{v_a} + m\,\kappa + S_r,
 \qquad
-\sum_{l} p(n_l)\,\frac{\text{len}_l}{v_d} + \sum_{i=1}^{m} p(m - i + 1)\,\tau_d + e_{LR} \;\le\; 1 - r_{\min}
+\sum_{l} p(n_l)\,\frac{\text{len}_l}{v_a} + \sum_{i=1}^{m} p(m - i + 1)\,\kappa + e_{lr} \;\le\; 1 - r_{\min}
 ```
 
 A loaded drone drains faster, so the reachable distance shrinks with the load and grows after each drop.
@@ -251,23 +251,23 @@ A loaded drone drains faster, so the reachable distance shrinks with the load an
 **Guaranteed single-trip range.** A trip that carries one parcel to v and returns empty is feasible whenever dist(s, v) ≤ R₁:
 
 ```latex
-R_1 = v_d \cdot \frac{1 - r_{\min} - e_{LR} - p(1)\,\tau_d}{p(1) + p(0)}
+R_1 = v_a \cdot \frac{1 - r_{\min} - e_{lr} - p(1)\,\kappa}{p(1) + p(0)}
 ```
 
-With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, r\_min = 0.2 and v\_d = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 15 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every V\_s has a feasible drone plan.
+With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, rₘᵢₙ = 0.2 and vₐ = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 15 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every Vₛ has a feasible drone plan.
 
-**Schedule with instant battery swaps.** Drone u flies trips ρ\_u1, …, ρ\_un back to back. With times measured from the truck's arrival:
+**Schedule with instant battery swaps.** Drone u flies trips ρᵤ₁, …, ρᵤₙ back to back. With times measured from the truck's arrival:
 
 ```latex
 b_{u1} = 0, \qquad b_{u,\ell+1} = b_{u\ell} + d_{\rho_{u\ell}}, \qquad \delta_v = b_{u\ell} + o_{\rho_{u\ell} v} \;\; (v \in \rho_{u\ell}), \qquad W_s = \max_u \big( b_{u n_u} + d_{\rho_{u n_u}} \big)
 ```
 
-Here o\_ρv is the time from launch to v's drop.
+Here oᵨᵥ is the time from launch to v's drop.
 
-**Objective of the drone subproblem.** A drone plan delays two groups: its own victims, through δ\_v, and every victim served later by the same truck, through W\_s. Let Ω⁺\_s be the priority weight served after s by that truck. The plan minimizes:
+**Objective of the drone subproblem.** A drone plan delays two groups: its own victims, through δᵥ, and every victim served later by the same truck, through Wₛ. Let Ω⁺ₛ be the priority weight served after s by that truck. The plan minimizes:
 
 ```latex
-J_D(s) = \sum_{v \in V_s} w_v\, \delta_v + \Omega^{+}_{s}\, W_s + c_D \sum_\rho e_\rho
+J_a(s) = \sum_{v \in V_s} w_v\, \delta_v + \Omega^{+}_{s}\, W_s + c_a \sum_\rho e_\rho
 ```
 
 The solver keeps a small menu of plans. Short-makespan plans suit satellites early in a long route; critical-first plans suit satellites with critical victims or late in a route (Section 6.1).
@@ -305,7 +305,7 @@ A_j \ge \alpha_{kr} + c_{0j} - M(1 - x_{0jkr}), \qquad A_j \ge A_i + W_i + c_{ij
 ```
 
 ```latex
-\omega_{kr} \ge A_i + W_i + c_{i0} - M(1 - x_{i0kr}), \qquad \alpha_{k,r+1} \ge \omega_{kr} + t_{\text{load}}, \qquad \alpha_{k1} \ge 0
+\omega_{kr} \ge A_i + W_i + c_{i0} - M(1 - x_{i0kr}), \qquad \alpha_{k,r+1} \ge \omega_{kr} + \theta, \qquad \alpha_{k1} \ge 0
 ```
 
 These time constraints also remove subtours.
@@ -317,18 +317,18 @@ J_0 = \sum_{v \in V^c} \Big[ \mathbf 1(T_v > D_v) + \frac{(T_v - D_v)^+}{D_v} \B
 ```
 
 ```latex
-J_1 = \frac{1}{\sum_v w_v} \sum_v w_v \big[ T_v + \pi_L (T_v - D_v)^+ \big], \qquad J_2 = c_T \sum_{i,j,k,r} c_{ij}\, x_{ijkr} + c_D \sum_{s,\rho} e_\rho
+J_1 = \frac{1}{\sum_v w_v} \sum_v w_v \big[ T_v + \pi_l (T_v - D_v)^+ \big], \qquad J_2 = c_t \sum_{i,j,k,r} c_{ij}\, x_{ijkr} + c_a \sum_{s,\rho} e_\rho
 ```
 
 ```latex
-\min \; M_D\, J_0 + J_1 + \lambda\, J_2, \qquad M_D \gg \max (J_1 + \lambda J_2)
+\min \; \Pi\, J_0 + J_1 + \lambda\, J_2, \qquad \Pi \gg \max (J_1 + \lambda J_2)
 ```
 
-J₀ counts critical victims served after their deadline, plus how late they are. Because M\_D dominates, a plan that meets every critical deadline is always preferred, so the deadline behaves as a hard constraint whenever it can be met. When road damage makes that impossible, the plan misses as few deadlines, by as little, as it can, instead of failing. J₁ is the priority-weighted average waiting time, with lateness against the soft targets.
+J₀ counts critical victims served after their deadline, plus how late they are. Because Π dominates, a plan that meets every critical deadline is always preferred, so the deadline behaves as a hard constraint whenever it can be met. When road damage makes that impossible, the plan misses as few deadlines, by as little, as it can, instead of failing. J₁ is the priority-weighted average waiting time, with lateness against the soft targets.
 
 ### 4.4 Structure and feasibility
 
-**Cumulative form.** Write truck k's whole sequence, across all its trips, as stops π₁, …, π\_m, where a depot reload is a stop with dwell t\_load and weight 0. With Ω\_s = Σ\_v w\_v y\_vs and Ω\_{≥p} the weight from stop p onward:
+**Cumulative form.** Write truck k's whole sequence, across all its trips, as stops π₁, …, πₘ, where a depot reload is a stop with dwell θ and weight 0. With Ωₛ = Σᵥ wᵥ yᵥₛ and Ω≥ₚ the weight from stop p onward:
 
 ```latex
 \sum_v w_v T_v = \sum_{p} \Omega_{\ge p}\, c_{\pi_{p-1}\pi_p} + \sum_{p} \Omega_{> p}\, W_{\pi_p} + \sum_v w_v\, \delta_v
@@ -337,7 +337,7 @@ J₀ counts critical victims served after their deadline, plus how late they are
 This has three consequences:
 
 1. **Known problem class.** The truck problem is a weighted, multi-trip cumulative CVRP with service times (Ngueveu et al. 2010), so its moves and bounds apply.
-2. **Ordering rules.** Ignoring travel, two neighbouring satellites a, b should swap when Ω\_b / W\_b > Ω\_a / W\_a (Smith 1956). For the same reason, a reload delays everything after it, so heavy-priority satellites belong on a truck's first trip.
+2. **Ordering rules.** Ignoring travel, two neighbouring satellites i, j should swap when Ωⱼ / Wⱼ > Ωᵢ / Wᵢ (Smith 1956). For the same reason, a reload delays everything after it, so heavy-priority satellites belong on a truck's first trip.
 3. **Dwell cost.** With the assignment y fixed, total dwell is constant. It matters only through later arrivals and when victims move between satellites.
 
 **Proposition (full coverage is always feasible).** Suppose that:
@@ -350,7 +350,7 @@ Then a plan serving every victim exists. Proof: serve each used satellite on its
 
 ## 5. Dynamic re-planning
 
-The plan is re-optimized at every step boundary t\_k = k·Δt (Δt = 1 h), the only times road states change. Over an operation of 8–12 h this means 8–12 re-plans. Each one keeps what is done or under way and re-solves the rest of the problem of Section 4.
+The plan is re-optimized at every step boundary tₖ = k·Δt (Δt = 1 h), the only times road states change. Over an operation of 8–12 h this means 8–12 re-plans. Each one keeps what is done or under way and re-solves the rest of the problem of Section 4.
 
 *(Figure: one time step · three re-planning levels. See the online doc.)*
 
@@ -361,7 +361,7 @@ Each step checks how much the road changes hurt the current plan, and only a lar
 **Flood zone.**
 
 - **Centre:** the location of a randomly chosen victim, jittered by up to 5% of the side and clipped to the map, so it always lies inside the area and where people are.
-- **Radius:** r\_f is set so that about 30% of the roads have their midpoint inside the zone.
+- **Radius:** it is set so that about 30% of the roads have their midpoint inside the zone.
 - Roads outside the zone stay open.
 
 **Initial state.** At t = 0, each zone road is drawn from the long-run mix of the chosen intensity, so the first plan already faces damage.
@@ -378,11 +378,11 @@ A closure lasts about 3 hours on average, and closed roads can reopen. For the 3
 
 **Frozen roads.** A road that any truck has driven, or is driving at a boundary, keeps its state from then on. Changes therefore never affect a truck mid-road, and a truck returning along a road it used keeps the travel time it saw.
 
-After each update, fastest-path times c\_ij(t) are recomputed with Dijkstra. Every road time is finite, so every satellite stays reachable.
+After each update, fastest-path times cᵢⱼ(t) are recomputed with Dijkstra. Every road time is finite, so every satellite stays reachable.
 
 ### 5.2 State and locks at a boundary
 
-The state at t\_k is:
+The state at tₖ is:
 
 - the road states;
 - the victims served so far;
@@ -390,7 +390,7 @@ The state at t\_k is:
 - each drone's ongoing trip;
 - each truck's mode, remaining parcels and *free point*: where and when its plan may change.
 
-| Truck mode at t\_k | Locked | Free point |
+| Truck mode at tₖ | Locked | Free point |
 | --- | --- | --- |
 | Driving road (i, j) | The road and its arrival time at j | Node j, at that arrival time |
 | Dwelling at satellite s | Drone trips in the air, and the victims on them | s, as soon as the trips in the air land; queued trips stay open |
@@ -401,13 +401,13 @@ Only the current road is locked. A truck heading to a satellite along several ro
 
 ### 5.3 Residual problem
 
-The residual problem P(t\_k) is the model of Section 4 restricted to what remains:
+The residual problem P(tₖ) is the model of Section 4 restricted to what remains:
 
 - **Trucks** start at their free points, with the parcels still on board. They may finish their current trip, return and reload for further trips.
 - **Satellites** are the unvisited candidates, plus each active satellite, which stays first on its truck.
 - **Victims** are those not yet served. Any of them may move to another satellite that covers it.
 
-Arrival times start from the free point (node h\_k, time φ\_k):
+Arrival times start from the free point (node hₖ, time φₖ):
 
 ```latex
 A_j \ge \varphi_k + c_{h_k j}(t_k) - M\,(1 - x_{h_k j k r})
@@ -415,16 +415,16 @@ A_j \ge \varphi_k + c_{h_k j}(t_k) - M\,(1 - x_{h_k j k r})
 
 The drone level is re-planned with the trucks:
 
-1. **Re-solved drone plans.** A satellite whose victim set changes, or whose route position changes Ω⁺\_s, gets its drone plan re-solved. The truck problem then sees the new W\_s and δ\_v.
+1. **Re-solved drone plans.** A satellite whose victim set changes, or whose route position changes Ω⁺ₛ, gets its drone plan re-solved. The truck problem then sees the new Wₛ and δᵥ.
 2. **Extended service at an active satellite.** If the dwelling truck has spare parcels, unserved victims that this satellite covers can be added to its queued trips. The truck waits longer, but no satellite is revisited.
 3. **Critical-first ordering.** Drone plans at satellites with critical victims are re-ordered so critical drops come first when their deadlines are tight.
 
 ### 5.4 One re-planning step
 
-1. **Simulate** the current plan up to t\_k, and record every delivery time T\_v.
+1. **Simulate** the current plan up to tₖ, and record every delivery time Tᵥ.
 2. **Freeze** served victims, visited satellites, roads driven or occupied, and drone trips in the air. Compute each truck's free point.
 3. **Update** the states of unfrozen zone roads, and recompute fastest paths.
-4. **Evaluate** the current plan under the new times: ΔJ is the change in M\_D J₀ + J₁ + λJ₂.
+4. **Evaluate** the current plan under the new times: ΔJ is the change in Π J₀ + J₁ + λJ₂.
 5. **Choose** a re-planning level (rule below, or the learned policy of Section 7):
 
    | Level | Rule | Action |
@@ -433,28 +433,28 @@ The drone level is re-planned with the trucks:
    | L1 — repair | ΔJ ≤ 5% | A few local moves from the current plan |
    | L2 — re-optimize | ΔJ > 5% or a critical deadline at risk | Warm-started ALNS with victim re-assignment and drone re-solves |
 6. **Commit** the new plan. Trucks at their free points start their next road, which freezes it.
-7. Continue to t\_{k+1}.
+7. Continue to tₖ₊₁.
 
 **Coverage during execution.** By the Proposition of Section 4.4, every re-plan has a plan that serves everyone, so full coverage is never at risk. What changes from step to step is timeliness. If road damage makes a critical deadline impossible to meet, J₀ keeps the number and size of misses as small as possible.
 
 ## 6. Solution method
 
-We solve each problem P(t\_k) by decomposition. A fast drone solver gives every satellite its dwell and victim offsets. An adaptive large neighbourhood search (ALNS) over truck trips and victim assignments calls it through a cache. The same search builds the first plan at t = 0, and is warm-started at every L2 re-plan.
+We solve each problem P(tₖ) by decomposition. A fast drone solver gives every satellite its dwell and victim offsets. An adaptive large neighbourhood search (ALNS) over truck trips and victim assignments calls it through a cache. The same search builds the first plan at t = 0, and is warm-started at every L2 re-plan.
 
-*(Figure: solution framework, showing the optimizer, the simulator and the two learned policies. See the online doc.)*
+*(Figure: solution framework · optimizer, simulator and the two learned policies. See the online doc.)*
 
 After the first plan, each hour runs the same loop. Roads change; the re-planning policy picks a level; for L1 or L2 the optimizer rebuilds the plan, with the ALNS calling the drone solver for every satellite it changes; the plan is committed until the next hour. The two learned components, shaded, only choose levels and operators.
 
 ### 6.1 Drone solver
 
-For a satellite s with victims V\_s:
+For a satellite s with victims Vₛ:
 
-1. **Giant tour.** One tour through V\_s (nearest neighbour, then 2-opt). A critical-first variant puts critical victims at the front.
+1. **Giant tour.** One tour through Vₛ (nearest neighbour, then 2-opt). A critical-first variant puts critical victims at the front.
 2. **Exact split under the battery limit.** Dynamic programming cuts the tour into trips (Prins 2004). A cut is allowed only if the trip carries at most P parcels and satisfies the load-dependent energy constraint of Section 4.2, evaluated with the falling load leg by leg. This takes O(m²) time for m victims.
 3. **Schedule on U drones.** Swaps are instant, so each drone flies its trips back to back. Two orders are tried:
-   - longest trip first, for a short dwell W\_s;
+   - longest trip first, for a short dwell Wₛ;
    - critical-first, or highest weight per minute (Σw / d\_ρ, Smith's rule), for early drops to urgent victims.
-4. **Menu.** Keep the non-dominated pairs (W\_s, Σ w\_v δ\_v), usually two to four plans. The truck search picks the plan that minimizes J\_D at the satellite's route position, without re-running the solver.
+4. **Menu.** Keep the non-dominated pairs (Wₛ, Σ wᵥ δᵥ), usually two to four plans. The truck search picks the plan that minimizes Jₐ at the satellite's route position, without re-running the solver.
 
 Results are cached by (satellite, victim set). A victim move changes only two entries, so most calls are cache hits.
 
@@ -465,24 +465,24 @@ Results are cached by (satellite, victim set). A victim move changes only two en
 **Destroy operators** (remove 10–30% of the satellites):
 
 - random removal;
-- worst removal: the largest weighted-delay contribution Ω\_s · A\_s, and satellites holding critical victims close to their deadline;
+- worst removal: the largest weighted-delay contribution Ωₛ · Aₛ, and satellites holding critical victims close to their deadline;
 - related removal, by distance;
 - **damage-related removal**: satellites whose paths use roads that changed state at this step;
 - trip removal: a whole truck trip.
 
-**Repair operators.** Greedy and regret-2 insertion with the cumulative cost of 6.3. A satellite may be inserted into an existing trip or open a new trip after a reload. Satellites are inserted in decreasing Ω\_s, with critical satellites first.
+**Repair operators.** Greedy and regret-2 insertion with the cumulative cost of 6.3. A satellite may be inserted into an existing trip or open a new trip after a reload. Satellites are inserted in decreasing Ωₛ, with critical satellites first.
 
 **Victim moves.** Re-assign a victim to another covering satellite, or swap two victims between satellites. Each move re-solves the two drone plans through the cache, and checks trip capacity.
 
 **Local search** after each repair: relocate, swap, 2-opt\*, Or-opt, and moving a satellite between trips.
 
-**Acceptance.** Simulated annealing on M\_D J₀ + J₁ + λJ₂. The destroy and repair operators are chosen either by adaptive weights (Ropke & Pisinger 2006) or by the learned selector of Section 7.2.
+**Acceptance.** Simulated annealing on Π J₀ + J₁ + λJ₂. The destroy and repair operators are chosen either by adaptive weights (Ropke & Pisinger 2006) or by the learned selector of Section 7.2.
 
 **Budgets.** About 30 s for the first plan, and 5–10 s per L2 re-plan.
 
 ### 6.3 Fast move evaluation
 
-For each truck sequence we store prefix arrivals, dwell ends and suffix weights Ω\_{≥p}. Inserting satellite s between stops a and b at position p shifts every later arrival by:
+For each truck sequence we store prefix arrivals, dwell ends and suffix weights Ω≥ₚ. Inserting satellite s between stops a and b at position p shifts every later arrival by:
 
 ```latex
 \delta = c_{as} + W_s + c_{sb} - c_{ab}
@@ -504,7 +504,7 @@ This takes O(1) time. Depot reloads are stops with weight 0, so the same formula
 
 1. **Assignment.** Each victim goes to its nearest covering satellite. A greedy pass then moves victims from heavily loaded satellites to their second-nearest coverer.
 2. **Drone plans.** Solve every used satellite's menu.
-3. **Truck trips.** Regret-2 insertion in decreasing Ω\_s, opening a new trip when capacity is reached, followed by ALNS.
+3. **Truck trips.** Regret-2 insertion in decreasing Ωₛ, opening a new trip when capacity is reached, followed by ALNS.
 
 ## 7. Learning-assisted re-planning
 
@@ -518,11 +518,11 @@ We use deep reinforcement learning to decide **how** to re-optimize, not to buil
 
 ### 7.1 Re-planning policy
 
-At each boundary t\_k the policy picks the re-planning level that the fixed rule of Section 5.4 picks today.
+At each boundary tₖ the policy picks the re-planning level that the fixed rule of Section 5.4 picks today.
 
-**State x\_k** (normalized features):
+**State xₖ** (normalized features):
 
-- the time t\_k relative to the expected end of operations;
+- the time tₖ relative to the expected end of operations;
 - the share of victims still unserved, per priority class;
 - the number of critical victims at risk, and the smallest critical-deadline slack;
 - the number of unvisited satellites, parcels still on trucks, and trucks in each mode;
@@ -530,12 +530,12 @@ At each boundary t\_k the policy picks the re-planning level that the fixed rule
 - ΔJ after an L0 update and after an L1 repair (both cheap to compute);
 - the share of closed roads in the flood zone, and the computing time used so far.
 
-**Actions a\_k** ∈ {L0 path update, L1 repair, L2 with a 2 s budget, L2 with a 10 s budget}.
+**Actions aₖ** ∈ {L0 path update, L1 repair, L2 with a 2 s budget, L2 with a 10 s budget}.
 
-**Reward.** The negative of the realized objective accumulated during (t\_k, t\_{k+1}\], minus a computing-time penalty:
+**Reward.** The negative of the realized objective accumulated during (tₖ, tₖ₊₁\], minus a computing-time penalty:
 
 ```latex
-r_k = -\Big[ M_D\, \Delta J_0^{\text{real}} + \Delta J_1^{\text{real}} + \lambda\, \Delta J_2^{\text{real}} \Big]_{(t_k,\, t_{k+1}]} - \lambda_{\text{cpu}}\, \mathrm{CPU}_k
+r_k = -\Big[ \Pi\, \Delta J_0^{\text{real}} + \Delta J_1^{\text{real}} + \lambda\, \Delta J_2^{\text{real}} \Big]_{(t_k,\, t_{k+1}]} - \lambda_{\text{cpu}}\, \mathrm{CPU}_k
 ```
 
 Summing the rewards over an episode gives exactly the negative of the realized objective plus total computing cost. So maximizing the return optimizes what we report.
@@ -607,7 +607,7 @@ The optimizer decides which candidates are used and how many victims each serves
 - **Check:** the generator verifies that some covering assignment loads every satellite with at most Q victims, the condition of the Proposition in Section 4.4. The nearest assignment usually suffices; in the tight variant a small assignment model checks it.
 - **Drones:** U = 3 drones per truck, each carrying P = 3 parcels.
 
-**Road graph.** Roads follow the candidate grid: each grid node links to its four neighbours, and the depot links to its four nearest nodes. Base times are the Euclidean length × 1.2 (road circuity) / v\_t. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
+**Road graph.** Roads follow the candidate grid: each grid node links to its four neighbours, and the depot links to its four nearest nodes. Base times are the Euclidean length × 1.2 (road circuity) / vₜ. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
 
 **Flood zone and scenarios.**
 
@@ -615,18 +615,18 @@ The optimizer decides which candidates are used and how many victims each serves
 - **Road histories:** for each instance, intensity and seed, the full hourly road history is generated in advance and stored. Every strategy then faces the same realization.
 - **Volume:** 10 seeds per instance and intensity, with 3 seeds of every instance kept apart for training the policies of Section 7.
 
-**Deadline check.** For each critical victim, a lower bound on its service time is computed: the fastest drive at t = 0 to its nearest covering satellite, plus one direct drone trip. If this bound exceeds D\_v, the deadline becomes ⌈1.2 × bound⌉ and the change is logged. Each critical deadline is therefore reachable on its own.
+**Deadline check.** For each critical victim, a lower bound on its service time is computed: the fastest drive at t = 0 to its nearest covering satellite, plus one direct drone trip. If this bound exceeds Dᵥ, the deadline becomes ⌈1.2 × bound⌉ and the change is logged. Each critical deadline is therefore reachable on its own.
 
 **Parameters.**
 
 | Parameter | Value |
 | --- | --- |
-| Truck speed v\_t, drone speed v\_d | 40 km/h, 60 km/h |
+| Truck speed vₜ, drone speed vₐ | 40 km/h, 60 km/h |
 | Parcel q, drone payload P, drones per truck U | 1 kg, 3 parcels, 3 |
-| Drone energy: η, w₀, E, r\_min | 0.667 Wh/(kg·min), 6 kg, 180 Wh, 20% |
-| Launch S\_L, recovery S\_R, drop τ\_d | 1, 2, 0.1 min |
+| Drone energy: η, w₀, E, rₘᵢₙ | 0.667 Wh/(kg·min), 6 kg, 180 Wh, 20% |
+| Launch Sₗ, recovery Sᵣ, drop κ | 1, 2, 0.1 min |
 | Battery swap | instant, unlimited spares |
-| Truck reload t\_load | 15 min |
+| Truck reload θ | 15 min |
 | Time step Δt | 1 h (variant 30 min) |
 | Road multipliers | open 1, damaged 2.5, closed 5 |
 
@@ -660,7 +660,7 @@ No results are reported yet. The study tests three claims:
 | Drones per truck U | 1, 2, 3, 4 | How much does dwell, and with it waiting time, fall per extra drone? |
 | Multi-trip trucks | allowed / not allowed (tight Q) | What do second trips save when capacity is tight? |
 | Drone-level re-planning | on / off (assignment and drone plans frozen at t = 0) | How much of the gain comes from re-planning the drones? |
-| Critical deadline | dominant penalty / soft (same π\_L as other classes) | How many critical misses does the dominant penalty prevent, and at what cost to others? |
+| Critical deadline | dominant penalty / soft (same πₗ as other classes) | How many critical misses does the dominant penalty prevent, and at what cost to others? |
 | Closed-road multiplier | ×5, ×10 | How sensitive are the results to closure severity? |
 | Time step Δt | 1 h, 30 min | Does re-planning more often pay off? |
 | Range share α | 0.25, 0.35 | How does drone range relative to the map change satellite use? |
@@ -668,7 +668,7 @@ No results are reported yet. The study tests three claims:
 **Metrics.**
 
 - critical victims served late, and total critical lateness (J₀);
-- priority-weighted average waiting time (J₁), and the average and maximum T\_v per class;
+- priority-weighted average waiting time (J₁), and the average and maximum Tᵥ per class;
 - makespan: the time the last victim is served;
 - truck driving time, number of truck trips, total dwell and drone energy (J₂);
 - satellites used, and victims per used satellite;
