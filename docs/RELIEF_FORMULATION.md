@@ -364,15 +364,15 @@ Each step checks how much the road changes hurt the current plan, and only a lar
 - **Radius:** it is set so that about 30% of the roads have their midpoint inside the zone.
 - Roads outside the zone stay open.
 
-**Initial state.** At t = 0, each zone road is drawn from the long-run mix of the chosen intensity, so the first plan already faces damage.
+**Initial state.** At t = 0, each zone road's state is drawn independently from the long-run mix of the chosen intensity (the last column below), so the first plan already faces damage and the damage level stays stable on average.
 
 **Hourly transitions.** At each boundary, every zone road that is not frozen moves according to a Markov matrix. Rows are "from" open, damaged, closed; columns are "to" the same states:
 
 | Intensity | Hourly matrix P | Long-run open / damaged / closed |
 | --- | --- | --- |
-| Low | \[\[0.95, 0.04, 0.01\], \[0.30, 0.66, 0.05\], \[0.13, 0.13, 0.74\]\] | 83% / 12% / 6% |
+| Low | \[\[0.95, 0.04, 0.01\], \[0.30, 0.66, 0.04\], \[0.13, 0.13, 0.74\]\] | 83% / 12% / 6% |
 | Medium | \[\[0.88, 0.08, 0.04\], \[0.28, 0.63, 0.09\], \[0.17, 0.13, 0.70\]\] | 65% / 20% / 15% |
-| High | \[\[0.80, 0.11, 0.08\], \[0.23, 0.60, 0.18\], \[0.11, 0.13, 0.75\]\] | 45% / 23% / 32% |
+| High | \[\[0.80, 0.11, 0.09\], \[0.23, 0.59, 0.18\], \[0.12, 0.13, 0.75\]\] | 45% / 23% / 32% |
 
 A closure lasts about 3 hours on average, and closed roads can reopen. For the 30-minute variant, these matrices are replaced by matrices that give the same long-run shares.
 
