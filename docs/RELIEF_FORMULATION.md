@@ -573,6 +573,10 @@ A DQN trained across instances replaces the adaptive weights of Ropke & Pisinger
 
 Instances are built from Solomon's (1987) VRPTW set. Every instance is guaranteed feasible, with every victim in single-trip drone range of at least two candidate satellites, and the guarantee is checked by a validation report.
 
+*(Figure: data generation pipeline · eight steps, a check and the saved files. See the online doc.)*
+
+The steps run left to right on the top row and right to left on the bottom row. Step 4, the double-coverage placement of satellites, is what guarantees every instance is feasible. The details of each step follow.
+
 **Base data.**
 
 - **Layouts:** Solomon's four distinct layouts, C1 (clustered), C2 (clustered, wider), R1 (random) and RC1 (mixed). R2 and RC2 share the coordinates of R1 and RC1.
