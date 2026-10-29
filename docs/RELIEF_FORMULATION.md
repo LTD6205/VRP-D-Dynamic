@@ -60,7 +60,7 @@ The relief-specific two-echelon model of Nguyen et al. (2E-CTVRP) does make the 
 
 ## 2. Related work
 
-Our model joins five lines of work. Table 1 summarizes the studies closest to it.
+Our model joins five lines of work. Tables 1a and 1b summarize the studies closest to it.
 
 ### 2.1 Two-echelon vehicle–drone routing
 
@@ -114,7 +114,20 @@ We follow the last line: learning decides how to re-optimize, and the optimizer 
 
 ### 2.6 Positioning
 
-**Table 1.** Studies closest to ours.
+**Table 1a.** Studies closest to ours: the problem each solves and its main contribution.
+
+| Study | Problem solved | Main contribution |
+| --- | --- | --- |
+| Nguyen et al. (2E-CTVRP) | Post-disaster relief. Trucks carry supplies and drones from a depot to satellites; drones serve the centroids of victim clusters in single round trips while the truck waits. Minimizes the sum of truck arrival times. | A covering-tour two-echelon model: victims are clustered, then a MILP routes trucks and assigns centroids to satellites. A GRASP-ILS-PR metaheuristic for large instances; the MILP is exact for up to nine satellites. |
+| Yu et al. 2027 (2E-VRPLDTW) | Urban last-mile logistics. Vehicles carry parcels to satellites; load-dependent drones serve pickup-or-delivery customers with time windows and may land at the nearest satellite. Minimizes equipment and operating cost. | A bi-objective MO-MINLP with the rotor power model and cross-satellite recovery. DSDE, a constrained multi-objective differential evolution with hybrid operators, dynamic constraint tolerance and decision-space niching; validated against Gurobi fronts on 60 instances. |
+| Shi et al. 2026 (2ELRPTD) | Relief under uncertain demand and travel times. Large trucks supply selected satellites; small trucks, each carrying one drone, serve affected sites, some reachable only by drone. Minimizes completion time and cost. | A bi-objective robust MIP with budgeted uncertainty sets, solved by NSGA-II with tabu search and checked with the ε-constraint method. Robust plans are about 45 percentage points more often feasible than deterministic ones. |
+| Meng & Ma 2026 (EVRPD-TB) | Electric vehicles carry several multi-visit drones, wait at customer stops while the drones fly, and swap batteries at stations; customers have time windows. Minimizes travel, energy, swapping and fixed costs. | A bilinear MIP with load-dependent drone energy (mass × time) and hover, and a hybrid ALNS that matches Gurobi on small instances. Multi-visit trips cut cost by 7–15%. |
+| Luo et al. 2027 (MT-TDRP-SPDTC) | Multi-trip truck–drone pairs with simultaneous pickup and delivery, release dates and time windows; unserved customers are outsourced. Minimizes truck, drone-energy and outsourcing cost. | An enhanced MILP without trip indices and a VNS whose segment-based feasibility checks cut evaluation time by up to 87%; beats Gurobi and two published heuristics. |
+| Duan et al. 2026 | Time-dependent truck–drone routing with simultaneous pickup and delivery, multi-visit drones and time windows. Minimizes total cost and time-window violation. | A MILP with load- and endurance-dependent drones, and MO-HHMA, a multi-objective hyper-heuristic memetic algorithm whose learned choice of 12 low-level heuristics beats NSGA-II and MOEA/D in hypervolume. |
+| Peng et al. 2025 | Dynamic relief: new affected areas and demand changes appear every 15 min, some areas are drone-only, and each has a deadline. Minimizes travel cost plus delay and unserved-area penalties. | A Markov-game model solved by multi-agent deep RL (MADDPG with action masking), about 15% better than a rolling-horizon LNS. |
+| **This paper** (D2E-TDRP-LD) | Post-disaster relief with roads that degrade and recover hourly. Multi-trip trucks carry drones to satellites and wait while the drones fly multi-drop trips to every victim. Fewest critical-deadline misses first, then waiting time versus resource cost. | A bi-objective MO-MINLP with rotor power, an exact MILP form, full coverage by construction, rolling re-planning that freezes executed parts, and a learning-assisted MO-ALNS. |
+
+**Table 1b.** Features of the same studies.
 
 | Study | Satellites (two echelons) | Victim-level multi-drop drones | Load-dependent energy | Pareto front | Re-planning during execution | Learning |
 | --- | --- | --- | --- | --- | --- | --- |
