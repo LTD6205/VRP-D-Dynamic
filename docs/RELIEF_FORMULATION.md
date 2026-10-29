@@ -26,7 +26,7 @@ Because each victim needs one unit, drone loads are whole numbers and the power 
 
 **Keywords:** humanitarian logistics; two-echelon vehicle routing; truck–drone collaboration; load-dependent energy; multi-objective optimization; dynamic re-planning; deep reinforcement learning.
 
-&#91;embedded content: overview · the relief system and how it is planned\]
+&#91;embedded content\]
 
 **Fig. 1.** Overview. Panel A: trucks drive over open, damaged and closed roads to staging satellites, where drones fly multi-drop trips to victims while the truck waits. Panel B: at every time step the drone plans give the truck search its dwell times, and the truck route tells each drone plan how much priority is waiting further along the route.
 
@@ -186,7 +186,7 @@ The calibration keeps the single-unit range of our earlier linear model, but the
 **Coverage.** Satellite s covers victim v (aᵥₛ = 1) if a trip that carries one unit to v and returns empty is battery-feasible, that is, if dₛᵥ ≤ R₁ with
 
 ```latex
-R_1 = \frac{v_a}{60} \cdot \frac{1 - r_{\min} - p(1)\,\kappa}{p(1) + p(0)} \approx 16.5\ \text{km}
+R_1 = \frac{v_a}{60} \cdot \frac{1 - r_{\min} - p(1)\,\kappa}{p(1) + p(0)} \approx 16.3\ \text{km}
 ```
 
 Coverage depends only on fixed locations and the drone, so aᵥₛ is computed once per instance. Road damage affects only the trucks.
@@ -197,8 +197,8 @@ Coverage depends only on fixed locations and the drone, so aᵥₛ is computed o
 2. At a satellite the truck waits until all its drones have landed. Drones launch and land at their own truck's satellite: with communications down and drones scarce, a truck does not leave drones behind (Nguyen et al.). This replaces the cross-satellite recovery of Yu et al. (2027).
 3. Every victim needs one unit of q = 1 kg and is served once, by one drop. A truck carries at most Q₁ = 500 units per trip and a drone at most Q₂ = 3 units per trip. Drones and batteries do not count toward Q₁.
 4. Trucks and drones drive and fly at constant speeds (40 and 60 km/h). Drones are unaffected by road states.
-5. Each drone trip starts on a full battery: batteries are swapped instantly from an unlimited stock. Launch and recovery take no time; each drop takes a hover of κ = 0.1 min at the load before the drop.
-6. A trip must land with at least rₘᵢₙ = 20% of its battery.
+5. Each drone trip starts on a full battery: batteries are swapped instantly from an unlimited stock. A launch (climb) takes Sₗ = 0.5 min, and a recovery (descent, landing, battery swap and loading the next parcels) takes Sᵣ = 1 min. Each drop takes a hover of κ = 0.5 min at the load before the drop, to lower the parcel.
+6. A trip must land with at least rₘᵢₙ = 20% of its battery. The energy of the vertical climb and descent is not counted in the trip check: for 100 m at 5 m/s it is about 2% of the battery (3.6 Wh), so the 20% reserve covers it and still leaves an 18% safety margin.
 7. A victim may be served only from a satellite that covers it.
 8. Missing a critical deadline is a constraint violation, minimized before the objectives. Lateness of the other classes is penalized in f₁.
 9. Up to |K| trucks, each able to carry Ū drones, are available at the depot. Activating a truck or a drone has a fixed cost, and an idle truck may be activated at a later re-plan.
@@ -211,7 +211,7 @@ Coverage depends only on fixed locations and the drone, so aᵥₛ is computed o
 | --- | --- | --- |
 | N = {0} ∪ S ∪ V | Depot, candidate satellites, victims | Instance |
 | Vᶜ ⊆ V | Critical victims | 20% of V |
-| K | Trucks available at the depot | Workload rule (2 to 7) |
+| K | Trucks available at the depot | Workload rule (2 to 8) |
 | U, Uₖ | All drones; drones carried by truck k | Ū = 3 per truck |
 | R̄, H̄ | Maximum trips per truck, per drone | Upper bounds |
 | cᵢⱼ(t) | Fastest truck time from i to j at time t (min) | Road graph |
@@ -220,7 +220,7 @@ Coverage depends only on fixed locations and the drone, so aᵥₛ is computed o
 | wᵥ, Dᵥ | Priority weight and target time of victim v | Priority table |
 | Q₁, Q₂, q | Truck capacity, drone payload (units), unit mass | 500, 3, 1 kg |
 | vₜ, vₐ | Truck and drone speeds | 40, 60 km/h |
-| κ, θ | Drop hover time, truck reload time | 0.1 min, 0 |
+| Sₗ, Sᵣ, κ, θ | Drone launch, recovery and drop hover times; truck reload time | 0.5, 1, 0.5 min, 0 |
 | W, nᵣ, ζ | Drone mass with battery, rotors, rotor disc area | 6 kg, 6, 0.26 m² |
 | g, ρ | Gravity, air density | 9.81 m/s², 1.225 kg/m³ |
 | E, rₘᵢₙ | Battery capacity, landing reserve | 180 Wh, 20% |
@@ -282,6 +282,17 @@ CV = \sum_{v \in V^c} \left( \chi_v + \frac{\ell_v}{D_v} \right) \qquad (3)
 - **f₁, service.** The priority-weighted average time victims wait for their parcel, with each minute past a soft target counted 1 + πₗ = 3 times.
 - **f₂, resources.** The cost of the trucks and drones activated (Yu et al.'s equipment objective), plus truck driving and drone energy (their operating objective). We merge their two cost objectives into one because, in relief, the competing goal is waiting time.
 - **CV, critical deadlines.** The number of critical victims served late plus their relative lateness.
+
+**Cost model.** f₂ is in US dollars and has four parts, with the parameters of Yu et al. (2027):
+
+| Part | Rate | When it is charged | What it stands for |
+| --- | --- | --- | --- |
+| Truck activation h⁽¹⁾ | $12.50 per truck | Once, if the truck is used (τₖ = 1) | Vehicle, crew and fuel committed to this operation |
+| Drone activation h⁽²⁾ | $3.36 per drone | Once, if the drone is used (μᵤ = 1) | Drone, operator and spare batteries |
+| Truck driving cₜ | $0.0086 per driving minute | Every minute on the road, at the road's current state | Fuel and crew time; a damaged road costs 2.5×, a closed one 5× |
+| Drone energy cₐ | $0.0001 per Wh | The energy of every trip | Charging; a full 180 Wh battery costs about $0.018 |
+
+Waiting at a satellite or the depot costs nothing in f₂; it delays victims and so counts in f₁. For example, 4 trucks that drive 5 h each with 12 drones flying 300 trips of about 100 Wh cost $50 + $40 to activate, $10 to drive and $3 in energy, about $103 in total. Activation is about 87% of it, so the front mainly trades fleet size against waiting time, while driving and energy separate plans with the same fleet. Because objectives are normalized, only the ratio of activation to driving cost matters; a variant with five times the driving cost is tested in Section 5.7.
 
 The problem is to find the Pareto front of (f₁, f₂) over the plans with the smallest CV:
 
@@ -387,7 +398,7 @@ L_s \ge A_s \quad \forall s \in S \qquad (20)
 ```
 
 ```latex
-T_v \ge \beta^{uh} + \hat t_{sv} - M\,(1 - \xi^{uh}_{sv}) \quad \forall s \in S,\ \forall v \in V,\ \forall u, h \qquad (23)
+T_v \ge \beta^{uh} + S_l + \hat t_{sv} - M\,(1 - \xi^{uh}_{sv}) \quad \forall s \in S,\ \forall v \in V,\ \forall u, h \qquad (23)
 ```
 
 ```latex
@@ -395,7 +406,7 @@ T_j \ge T_i + \kappa + \hat t_{ij} - M\,(1 - \xi^{uh}_{ij}) \quad \forall i, j \
 ```
 
 ```latex
-\gamma^{uh} \ge T_i + \kappa + \hat t_{is} - M\,(1 - \xi^{uh}_{is}) \quad \forall i \in V,\ \forall s \in S,\ \forall u, h \qquad (25)
+\gamma^{uh} \ge T_i + \kappa + \hat t_{is} + S_r - M\,(1 - \xi^{uh}_{is}) \quad \forall i \in V,\ \forall s \in S,\ \forall u, h \qquad (25)
 ```
 
 ```latex
@@ -413,8 +424,8 @@ T_v \le D_v + M\, \chi_v \quad \forall v \in V^c \qquad (28)
 The time constraints synchronize the two echelons.
 
 - **Truck times.** Constraints (16)–(18) propagate arrivals along each trip, using the dwell end Lᵢ of the previous satellite. Constraint (19) starts each trip after the previous one returns (reload θ = 0).
-- **Launch after arrival.** Constraint (21) launches a drone trip at s only after its truck has arrived there, and (22) starts a drone's next trip as soon as it lands, because batteries are swapped instantly.
-- **Drone times.** Constraints (23)–(25) propagate drop and landing times along each drone trip, with a hover of κ at each drop.
+- **Launch after arrival.** Constraint (21) launches a drone trip at s only after its truck has arrived there, and (22) starts a drone's next trip as soon as its recovery ends; the battery swap happens within Sᵣ.
+- **Drone times.** Constraints (23)–(25) propagate drop and landing times along each drone trip: a launch time Sₗ before the first leg, a hover of κ at each drop, and a recovery time Sᵣ after the last leg, which includes the battery swap.
 - **Truck waits for its drones.** Constraint (26) is the key coupling of our model. The truck leaves s only after the last drone launched there has landed, so the dwell Wₛ delays every later satellite of the truck. Yu et al. (2027) synchronize only the launch, as in (21); their trucks do not wait.
 - **Targets and deadlines.** Constraint (27) measures lateness against the soft targets, and (28) flags the critical victims whose deadline is missed, which enter CV.
 
@@ -465,7 +476,7 @@ The load and energy constraints track parcels and battery.
 - **Truck load.** Constraint (29) loads each truck trip with all the units of the satellites it visits and caps the trip at Q₁.
 - **Drone load.** Constraint (30) caps a drone's load at Q₂ = 3 units. Constraint (31) drops one unit at each victim served, and (32) makes every trip land empty, so the load falls by one after each drop.
 - **Power and energy.** Constraint (33) is the rotor power at the current load, the nonlinear part of the model, as in Yu et al. (2027). Constraint (34) is the energy of an arc: flight time plus the drop hover at j, both at the load carried into j.
-- **Battery.** Constraint (35) starts every trip on a full battery (instant swap). Constraint (36) subtracts each arc's energy, with the big-M equal to 1 because b is a fraction, and (37) keeps rₘᵢₙ = 20% at landing.
+- **Battery.** Constraint (35) starts every trip on a full battery (instant swap). Constraint (36) subtracts each arc's energy, with the big-M equal to 1 because b is a fraction, and (37) keeps rₘᵢₙ = 20% at landing. Climb and descent energy (about 2% of the battery) is covered by this reserve rather than modelled (assumption 6).
 
 **Exact linear form.** Unlike Yu et al. (2027), whose payloads are continuous, our loads take only the values 0, 1, 2 and 3. With binaries λᵢⱼₗᵘʰ for "load l on arc (i, j)", constraint (33) becomes linear:
 
@@ -487,15 +498,15 @@ e_\rho = \sum_{i=0}^{m} p(m-i)\, \frac{60\, \ell_i}{v_a} + \sum_{i=1}^{m} p(m-i+
 
 4. **Decision.** The trip is feasible if eᵨ ≤ 1 − rₘᵢₙ = 0.80.
 
-**Worked examples.** A trip that flies 6 km out, drops at three victims 3 km apart and returns 7 km takes 19.3 min and uses 57.5% of the battery (103.5 Wh); the linear model gave 53%. A harder case: the first victim is 14 km out, the other two lie 1 km apart beyond it, and the way back is 14.5 km.
+**Worked examples.** A trip that flies 6 km out, drops at three victims 3 km apart and returns 7 km takes 22.0 min (19 min flying, 1.5 min hovering, 1.5 min launch and recovery) and uses 61.5% of the battery (111 Wh); the linear model gives 56.7%. A harder case: the first victim is 12 km out, the other two lie 1 km apart beyond it, and the way back is 12.5 km.
 
 | Trip option | Time | Rotor power model | Previous linear model |
 | --- | --- | --- | --- |
-| All three victims in one trip | 30.8 min | 93.0%, infeasible | 85.4%, infeasible |
-| Two victims (14 km out, 2 km between, 14.5 km back) | 30.7 min | 83.1%, infeasible | 79.5%, feasible |
-| One victim (14 km out and back) | 28.1 min | 67.9%, feasible | 67.7%, feasible |
+| All three victims in one trip | 29.5 min | 84.8%, infeasible | 77.8%, feasible |
+| Two victims (12 km out, 2 km between, 12.5 km back) | 29.0 min | 74.6%, feasible | 71.3%, feasible |
+| One victim (12 km out and back) | 26.0 min | 59.4%, feasible | 59.1%, feasible |
 
-Under the rotor model the far victims get single-unit trips, flown in parallel by the three drones. The linear model would have accepted a two-victim trip that, under the rotor model, lands with only 17% of the battery. Reference ranges at 60 km/h: a single-unit trip reaches R₁ ≈ 16.5 km, a two-unit trip to a cluster about 14.6 km away, and a full three-unit trip a cluster about 13.0 km away.
+Under the rotor model the three victims cannot share a trip, so the solver splits them, for example {v₁ v₂}{v₃} on two drones in parallel. The linear model would have accepted the three-victim trip, which under the rotor model would land with only 15% of the battery. Reference ranges at 60 km/h: a single-unit trip reaches R₁ ≈ 16.3 km, a two-unit trip a cluster about 14.2 km away, and a full three-unit trip a cluster about 12.4 km away.
 
 **Tracking the battery during execution.** Each accepted trip stores its battery level after every leg and drop. The simulator starts every trip at 100% and subtracts the same energies as the drone flies; since drones do not use roads and fly at constant speed, a checked trip cannot run out mid-flight. The simulator logs the lowest level of each trip, so the experiments can report how close trips come to the reserve.
 
@@ -525,7 +536,7 @@ The generator verifies the first two conditions (Section 5.1.1), and closed road
 
 The model of Section 3.2 describes one decision time with road states known. During the operation, roads change, so the plan is re-optimized at every step boundary tₑ = e·Δt (Δt = 1 h, 30 min as a variant), the only times road states change. Over an operation of 8–12 h this means 8–12 re-plans. Each re-plan keeps what is done or under way, re-solves the rest as a residual instance of (1)–(38), and executes one plan of the new front (Fig. 2).
 
-&#91;embedded content: one time step · three re-planning levels\]
+&#91;embedded content\]
 
 **Fig. 2.** One time step. Road changes are applied, the current plan is evaluated under the new times, and one of three re-planning levels is chosen; only a large loss triggers the full multi-objective re-optimization. Section 4.4 replaces the fixed rule with a learned policy.
 
@@ -607,7 +618,7 @@ By Proposition 1, every residual problem has a plan that serves everyone, so ful
 
 We solve each residual problem P(tₑ) by decomposition, with a method we call L-MOALNS. A fast drone solver gives every satellite a small menu of feasible drone plans. A multi-objective ALNS over the fleet, the truck trips and the victim assignments calls it through a cache and keeps an archive of non-dominated plans. The same search builds the first front at t = 0 and is warm-started from the previous archive at every full re-plan. Two double DQNs decide how much to re-optimize each hour and which operators to apply (Fig. 3).
 
-&#91;embedded content: solution framework · optimizer, simulator and the two learned policies\]
+&#91;embedded content\]
 
 **Fig. 3.** Solution framework. After the first front, each hour runs the same loop: roads change, the re-planning policy picks a level, the optimizer updates the archive (the ALNS calling the drone solver for every satellite it changes), and one plan is selected by the preference ω and committed until the next hour. The two learned components, shaded, only choose levels and operators.
 
@@ -625,8 +636,8 @@ Every encoded plan decodes to a solution of (4)–(38): capacities are checked p
 **Drone solver.** For a satellite s with victims Vₛ, served by the uₖ activated drones of its truck k:
 
 1. **Giant tour.** One tour through Vₛ (nearest neighbour, then 2-opt). A critical-first variant puts critical victims at the front.
-2. **Energy-aware exact split.** Dynamic programming cuts the tour into consecutive trips of at most Q₂ = 3 victims (Prins 2004). A cut is allowed only if the trip passes the battery check of Section 3.2.4. Each trip has a duration dᵨ = Σᵢ 60ℓᵢ / vₐ + mκ and an energy eᵨ E. The DP is solved twice, minimizing total duration and minimizing total energy, which differ under the rotor model because heavy multi-drop trips cost more energy per kilometre. With at most three victims per trip, each split takes O(3m) time.
-3. **Schedule on the uₖ drones.** Batteries are swapped instantly, so each drone flies its trips back to back. Two orders are tried: longest trip first, for a short dwell Wₛ, and critical-first or highest weight per minute (Smith's rule), for early drops to urgent victims.
+2. **Energy-aware exact split.** Dynamic programming cuts the tour into consecutive trips of at most Q₂ = 3 victims (Prins 2004). A cut is allowed only if the trip passes the battery check of Section 3.2.4. Each trip has a duration dᵨ = Sₗ + Σᵢ 60ℓᵢ / vₐ + mκ + Sᵣ and an energy eᵨ E. The DP is solved twice, minimizing total duration and minimizing total energy, which differ under the rotor model because heavy multi-drop trips cost more energy per kilometre. With at most three victims per trip, each split takes O(3m) time.
+3. **Schedule on the uₖ drones.** Batteries are swapped during the recovery time, so each drone flies its trips back to back. Two orders are tried: longest trip first, for a short dwell Wₛ, and critical-first or highest weight per minute (Smith's rule), for early drops to urgent victims.
 4. **Menu.** Keep the plans that are non-dominated in (Wₛ, Σ wᵥδᵥ, energy), usually two to five.
 
 The truck search picks, at each satellite, the menu plan that minimizes the current scalarization at the satellite's route position: Ω>ₚ Wₛ + Σ wᵥδᵥ for f₁ and cₐ × energy for f₂. Menus are cached by (satellite, victim set, drones); a victim move changes only two entries, so most calls are cache hits.
@@ -768,7 +779,7 @@ This section sets out the planned study; no results are reported yet. It follows
 
 Instances are built from two classic VRPTW benchmarks: Solomon (1987), 25 to 100 customers, and Gehring & Homberger (1999), 200 to 1,000 customers. Every instance is guaranteed feasible, with every victim within single-trip drone range of at least two candidate satellites, and a validation report checks this (Fig. 4).
 
-&#91;embedded content: data generation pipeline · eight steps, a check and the saved files\]
+&#91;embedded content\]
 
 **Fig. 4.** Data generation pipeline. The steps run left to right on the top row and right to left on the bottom row. Step 4, the double-coverage placement of satellites, is what guarantees every instance is feasible.
 
@@ -778,15 +789,15 @@ Instances are built from two classic VRPTW benchmarks: Solomon (1987), 25 to 100
 - **Gehring & Homberger:** n = 200, 400, 600, 800 or 1,000 victims on the five distinct layouts C1, C2, R1, R2 and RC. RC1 and RC2 share coordinates, and the ten instances of a class differ only in time windows, so we use instance 1 of each class. Files come from the PyVRP instance repository.
 - **Kept:** the depot and customer coordinates. **Dropped:** demands (each victim needs one unit), time windows and service times.
 
-**Scale.** Every map is scaled to the same 60 km × 60 km region: 600 m per unit for Solomon, and 430 m down to 120 m for Gehring & Homberger as the side grows from 140 to 500. With R₁ ≈ 16.5 km, the drone range is about 0.27 of the side (a 43 km variant gives 0.38). Larger instances therefore mean more people in the same flooded region, not a larger region; keeping 600 m per unit would stretch the 1,000-victim maps to 300 km and call for about 57 trucks.
+**Scale.** Every map is scaled to the same 60 km × 60 km region: 600 m per unit for Solomon, and 430 m down to 120 m for Gehring & Homberger as the side grows from 140 to 500. With R₁ ≈ 16.3 km, the drone range is about 0.27 of the side (a 43 km variant gives 0.38). Larger instances therefore mean more people in the same flooded region, not a larger region; keeping 600 m per unit would stretch the 1,000-victim maps to 300 km and call for about 57 trucks.
 
 **Priorities.** Classes are drawn at random: 20% critical, 30% high, 50% normal. In a variant, victims closer to the flood centre are more likely to be critical.
 
 **Candidate satellites (double coverage).**
 
-1. **Grid.** Candidates lie on a grid of spacing ρR₁ / √2 ≈ 7.0 km, with ρ = 0.6, so every point has the four corners of its cell within ρR₁ ≈ 10 km.
+1. **Grid.** Candidates lie on a grid of spacing ρR₁ / √2 ≈ 6.9 km, with ρ = 0.6, so every point has the four corners of its cell within ρR₁ ≈ 9.8 km.
 2. **Selection.** Choose the fewest candidates such that every victim is within ρR₁ of at least two. This set multicover problem is solved with CP-SAT in seconds. Candidates inside an optional no-go core of the flood zone are excluded first.
-3. **Margin.** A full three-unit trip reaches a cluster about 13.0 km away under the rotor model, so the 10 km planning radius leaves battery for the detours between drops.
+3. **Margin.** A full three-unit trip reaches a cluster about 12.4 km away under the rotor model, so the 9.8 km planning radius leaves battery for the detours between drops.
 
 **Fleet.**
 
@@ -798,17 +809,17 @@ Instances are built from two classic VRPTW benchmarks: Solomon (1987), 25 to 100
 
 | Set | Layout | Victims | Candidate satellites | Trucks available |
 | --- | --- | --- | --- | --- |
-| Solomon | C1 | 25 / 50 / 100 | 5 / 9 / 19 | 2 / 2 / 2 |
-| Solomon | C2 | 25 / 50 / 100 | 7 / 12 / 19 | 2 / 2 / 3 |
-| Solomon | R1 | 25 / 50 / 100 | 12 / 18 / 20 | 2 / 2 / 3 |
+| Solomon | C1 | 25 / 50 / 100 | 6 / 10 / 20 | 2 / 2 / 3 |
+| Solomon | C2 | 25 / 50 / 100 | 7 / 12 / 20 | 2 / 2 / 3 |
+| Solomon | R1 | 25 / 50 / 100 | 13 / 18 / 20 | 2 / 2 / 3 |
 | Solomon | RC1 | 25 / 50 / 100 | 6 / 11 / 23 | 2 / 2 / 3 |
-| G&H | C1 | 200 / 400 / 600 / 800 / 1,000 | 25 / 30 / 29 / 33 / 35 | 3 / 4 / 5 / 5 / 6 |
-| G&H | C2 | 200 / 400 / 600 / 800 / 1,000 | 29 / 27 / 29 / 29 / 29 | 4 / 4 / 5 / 5 / 6 |
-| G&H | R1 | 200 / 400 / 600 / 800 / 1,000 | 38 / 39 / 40 / 42 / 44 | 4 / 5 / 6 / 6 / 7 |
-| G&H | R2 | 200 / 400 / 600 / 800 / 1,000 | 38 / 39 / 40 / 42 / 44 | 4 / 5 / 6 / 6 / 7 |
-| G&H | RC | 200 / 400 / 600 / 800 / 1,000 | 35 / 36 / 36 / 40 / 44 | 4 / 5 / 6 / 6 / 7 |
+| G&H | C1 | 200 / 400 / 600 / 800 / 1,000 | 24 / 31 / 30 / 33 / 34 | 4 / 4 / 5 / 6 / 7 |
+| G&H | C2 | 200 / 400 / 600 / 800 / 1,000 | 29 / 29 / 31 / 30 / 30 | 4 / 4 / 5 / 6 / 7 |
+| G&H | R1 | 200 / 400 / 600 / 800 / 1,000 | 39 / 39 / 41 / 44 / 46 | 5 / 5 / 6 / 7 / 8 |
+| G&H | R2 | 200 / 400 / 600 / 800 / 1,000 | 39 / 39 / 41 / 44 / 46 | 5 / 5 / 6 / 7 / 8 |
+| G&H | RC | 200 / 400 / 600 / 800 / 1,000 | 34 / 36 / 38 / 42 / 46 | 5 / 5 / 6 / 7 / 7 |
 
-With the region fixed, candidates level off at 25 to 44 and victims per satellite grow instead: a median of about 4 for Solomon and 22 to 33 at 1,000 victims (up to 86). The optimizer decides which candidates are used and how many victims each serves.
+With the region fixed, candidates level off at 24 to 46 and victims per satellite grow instead: a median of about 4 for Solomon and 19 to 28 at 1,000 victims (up to 79). The optimizer decides which candidates are used and how many victims each serves.
 
 **Road graph.** Roads follow the candidate grid (about 75 junctions): each grid node links to its four neighbours, and the depot to its four nearest nodes. Base times are the Euclidean length × 1.2 / vₜ. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
 
@@ -970,7 +981,8 @@ Following Yu et al. (2027), we vary one drone parameter at a time, keep the cand
 | Drone mass W | 5, 6, 7 kg | Energy per trip and range |
 | Rotor disc area ζ | 0.20, 0.26, 0.32 m² | Power level |
 | Drone speed vₐ | 50, 60, 70 km/h | Dwell vs. range; the hover-power model ignores drag, so this is reported with that caveat |
-| Drop hover κ | 0.1, 0.5, 1 min | Energy and dwell of multi-drop trips |
+| Drop hover κ | 0.25, 0.5, 1 min | Energy and dwell of multi-drop trips |
+| Launch and recovery Sₗ, Sᵣ | (0, 0), (0.5, 1), (1, 2) min | How much ground handling adds to dwell and favours fewer, fuller trips |
 
 When a setting leaves some victim with fewer than two covering candidates, that is reported rather than repaired.
 
@@ -983,6 +995,7 @@ When a setting leaves some victim with fewer than two covering candidates, that 
 | Time step Δt | 1 h, 30 min | Whether re-planning more often pays off |
 | Flood-zone size | 20%, 30%, 40% of roads | How far damage must spread before re-planning matters |
 | Range share | 0.27, 0.38 of the map side | How drone range relative to the map changes satellite use |
+| Truck driving cost cₜ | 0.0086, 0.043 $/min (×5, with crew wages) | Whether costly driving shifts the front and steers trucks away from damaged roads |
 
 ## 6. Conclusion and prospects
 
