@@ -148,7 +148,11 @@ Section 3.1 defines the problem and its notation. Section 3.2 gives the decision
 
 ### 3.1 Problem definition and notation
 
-A relief operation starts at time 0 from one depot. Trucks carry parcels and drones from the depot to staging satellites; at each satellite the truck stops and its drones fly multi-drop trips that deliver one parcel to every victim assigned there; the truck leaves when its last drone has landed. Victims belong to priority classes, all of them must be served, and critical victims have deadlines. The goal is a plan that serves victims early, weighted by urgency, while committing few vehicles and little energy.
+A relief operation starts at time 0 from one depot (Fig. 2 illustrates a solution). Trucks carry parcels and drones from the depot to staging satellites; at each satellite the truck stops and its drones fly multi-drop trips that deliver one parcel to every victim assigned there; the truck leaves when its last drone has landed. Victims belong to priority classes, all of them must be served, and critical victims have deadlines. The goal is a plan that serves victims early, weighted by urgency, while committing few vehicles and little energy.
+
+&#91;embedded content: solution illustration · two trucks, five satellites, multi-drop drone trips\]
+
+**Fig. 2.** Illustration of a solution at one time step. Truck 1 serves S1 and S2 on its first trip; the direct road from S2 to S3 is closed, so it returns, reloads and serves S3 on a second trip. Truck 2 is driving its first road (frozen) towards S4, then crosses a damaged road to S5. At each satellite the drones fly multi-drop loops of at most three victims, critical victims included, while the truck waits; unused candidates stay idle.
 
 **Graph.** The problem is defined on the node set N = {0} ∪ S ∪ V, with depot 0, candidate satellites S and victims V.
 
@@ -547,11 +551,11 @@ The generator verifies the first two conditions (Section 5.1.1), and closed road
 
 ### 3.3 Dynamic extension: re-planning on a degrading road network
 
-The model of Section 3.2 describes one decision time with road states known. During the operation, roads change, so the plan is re-optimized at every step boundary tₑ = e·Δt (Δt = 1 h, 30 min as a variant), the only times road states change. Over an operation of 8–12 h this means 8–12 re-plans. Each re-plan keeps what is done or under way, re-solves the rest as a residual instance of (1)–(38), and executes one plan of the new front (Fig. 2).
+The model of Section 3.2 describes one decision time with road states known. During the operation, roads change, so the plan is re-optimized at every step boundary tₑ = e·Δt (Δt = 1 h, 30 min as a variant), the only times road states change. Over an operation of 8–12 h this means 8–12 re-plans. Each re-plan keeps what is done or under way, re-solves the rest as a residual instance of (1)–(38), and executes one plan of the new front (Fig. 3).
 
 &#91;embedded content\]
 
-**Fig. 2.** One time step. Road changes are applied, the current plan is evaluated under the new times, and one of three re-planning levels is chosen; only a large loss triggers the full multi-objective re-optimization. Section 4.4 replaces the fixed rule with a learned policy.
+**Fig. 3.** One time step. Road changes are applied, the current plan is evaluated under the new times, and one of three re-planning levels is chosen; only a large loss triggers the full multi-objective re-optimization. Section 4.4 replaces the fixed rule with a learned policy.
 
 #### 3.3.1 Road dynamics
 
@@ -629,11 +633,11 @@ By Proposition 1, every residual problem has a plan that serves everyone, so ful
 
 ## 4. Learning-assisted multi-objective ALNS for the dynamic problem
 
-We solve each residual problem P(tₑ) by decomposition, with a method we call L-MOALNS. A fast drone solver gives every satellite a small menu of feasible drone plans. A multi-objective ALNS over the fleet, the truck trips and the victim assignments calls it through a cache and keeps an archive of non-dominated plans. The same search builds the first front at t = 0 and is warm-started from the previous archive at every full re-plan. Two double DQNs decide how much to re-optimize each hour and which operators to apply (Fig. 3).
+We solve each residual problem P(tₑ) by decomposition, with a method we call L-MOALNS. A fast drone solver gives every satellite a small menu of feasible drone plans. A multi-objective ALNS over the fleet, the truck trips and the victim assignments calls it through a cache and keeps an archive of non-dominated plans. The same search builds the first front at t = 0 and is warm-started from the previous archive at every full re-plan. Two double DQNs decide how much to re-optimize each hour and which operators to apply (Fig. 4).
 
 &#91;embedded content\]
 
-**Fig. 3.** Solution framework. After the first front, each hour runs the same loop: roads change, the re-planning policy picks a level, the optimizer updates the archive (the ALNS calling the drone solver for every satellite it changes), and one plan is selected by the preference ω and committed until the next hour. The two learned components, shaded, only choose levels and operators.
+**Fig. 4.** Solution framework. After the first front, each hour runs the same loop: roads change, the re-planning policy picks a level, the optimizer updates the archive (the ALNS calling the drone solver for every satellite it changes), and one plan is selected by the preference ω and committed until the next hour. The two learned components, shaded, only choose levels and operators.
 
 ### 4.1 Encoding and drone subproblem solver
 
@@ -790,11 +794,11 @@ This section sets out the planned study; no results are reported yet. It follows
 
 #### 5.1.1 Benchmark instances
 
-Instances are built from two classic VRPTW benchmarks: Solomon (1987), 25 to 100 customers, and Gehring & Homberger (1999), 200 to 1,000 customers. Every instance is guaranteed feasible, with every victim within single-trip drone range of at least two candidate satellites, and a validation report checks this (Fig. 4).
+Instances are built from two classic VRPTW benchmarks: Solomon (1987), 25 to 100 customers, and Gehring & Homberger (1999), 200 to 1,000 customers. Every instance is guaranteed feasible, with every victim within single-trip drone range of at least two candidate satellites, and a validation report checks this (Fig. 5).
 
 &#91;embedded content\]
 
-**Fig. 4.** Data generation pipeline. The steps run left to right on the top row and right to left on the bottom row. Step 4, the double-coverage placement of satellites, is what guarantees every instance is feasible.
+**Fig. 5.** Data generation pipeline. The steps run left to right on the top row and right to left on the bottom row. Step 4, the double-coverage placement of satellites, is what guarantees every instance is feasible.
 
 **Base data.**
 
