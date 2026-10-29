@@ -23,7 +23,7 @@ With drone plans fixed, the truck problem is a multi-trip cumulative CVRP with s
 
 - A decomposition: a split-based drone solver inside an adaptive large neighbourhood search (ALNS) for the trucks.
 - A double deep Q-network (DQN) that learns how much re-optimization each step deserves and which search operators to use.
-- A Solomon-based instance generator that guarantees every victim lies within single-trip drone range of at least two candidate satellites.
+- An instance generator built on the Solomon and Gehring & Homberger benchmarks (25 to 1,000 victims) that guarantees every victim lies within single-trip drone range of at least two candidate satellites.
 
 Experiments are planned for the next version.
 
@@ -72,7 +72,7 @@ None re-plans a two-level relief system hour by hour while keeping every victim 
    - trucks can make several trips.
 4. **Dynamic, drone-aware re-planning.** Hourly road changes, with driven and occupied roads frozen. A rolling-horizon loop re-optimizes truck routes, victim-to-satellite assignment and drone plans together.
 5. **Learning-assisted solution method.** A split-based drone solver inside a warm-started ALNS. A double DQN chooses how much re-optimization each step deserves and which ALNS operators to apply. It does not build routes itself, so every plan remains feasible.
-6. **Benchmark generator.** Solomon-based instances with equal demands, priority classes, satellite candidates placed by double coverage, a road graph, a flood zone and hourly damage scenarios.
+6. **Benchmark generator.** Instances from the Solomon and Gehring & Homberger benchmarks (25 to 1,000 victims) with equal demands, priority classes, satellite candidates placed by double coverage, a road graph, a flood zone and hourly damage scenarios.
 
 ## 2. Related work
 
@@ -151,7 +151,7 @@ Trucks follow the fastest path at the current states. Because no road is impassa
 
 **Trucks (multi-trip).**
 
-- Each truck carries at most Q parcels.
+- Each truck carries at most Q units per trip.
 - A trip leaves the depot, visits one or more satellites and returns.
 - After returning, a truck may reload (time θ) and start another trip.
 - Each satellite is visited **at most once over the whole operation**. There are no revisits and no second deliveries to the same satellite.
@@ -159,9 +159,9 @@ Trucks follow the fastest path at the current states. Because no road is impassa
 
 **Victims and demand.**
 
-- Every victim v needs exactly **one parcel of q kg**, with q ≤ the drone payload. So each victim is served by one drone drop and never revisited.
+- Every victim v needs exactly **one unit (a parcel of q kg)**, with q ≤ the drone payload. So each victim is served by one drone drop and never revisited.
 - Each victim has a priority class (below).
-- A drone carries up to P parcels per trip (e.g. q = 1 kg, P = 3).
+- Capacities are counted in units: each victim needs 1 unit, a drone carries up to P = 3 units per trip, and a truck carries up to Q = 500 units per trip. One unit weighs q kg (1 kg by default); only the battery model uses the weight.
 
 **Satellites and coverage.**
 
@@ -255,6 +255,23 @@ R_1 = v_a \cdot \frac{1 - r_{\min} - e_{lr} - p(1)\,\kappa}{p(1) + p(0)}
 ```
 
 With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, rₘᵢₙ = 0.2 and vₐ = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 15 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every Vₛ has a feasible drone plan. Coverage depends only on fixed locations and the battery model, so aᵥₛ is computed once when the instance is generated (one distance check per victim–satellite pair, e.g. 100 × 25 = 2,500 checks) and never changes during operations: road damage affects only the trucks.
+
+**Battery figures.** At a constant 60 km/h, the drain per minute equals the drain per kilometre. The table gives it for each load, with the distance a drone could fly on the usable 80% of the battery while carrying that load:
+
+| Units on board | Drain per minute (per km) | Distance on 80% at that load |
+| --- | --- | --- |
+| 0 | 2.22% | 36 km |
+| 1 | 2.59% | 31 km |
+| 2 | 2.96% | 27 km |
+| 3 | 3.33% | 24 km |
+
+Launch (1 min, loaded) and recovery (2 min, empty) together cost about 7–8% of the battery. Three figures follow:
+
+- **Single-unit round trip:** out with one unit and back empty, up to R₁ ≈ 15.1 km. This is the coverage radius.
+- **Full three-unit trip:** to a cluster of victims up to about 12.8 km away.
+- **Worked example:** a trip that flies 6 km out, drops at three victims 3 km apart and returns 7 km takes 22.3 min and uses 61% of the battery, inside the 80% limit.
+
+The solver accepts a trip only if its energy, summed leg by leg with the load falling after each drop, is at most 80%. If one unit is set to weigh something other than 1 kg, p(n) and all these distances are recomputed from the same formula.
 
 **Schedule with instant battery swaps.** Drone u flies trips ρᵤ₁, …, ρᵤₙ back to back. With times measured from the truck's arrival:
 
@@ -571,7 +588,7 @@ A DQN trained across instances replaces the adaptive weights of Ropke & Pisinger
 
 ## 8. Benchmark generation
 
-Instances are built from Solomon's (1987) VRPTW set. Every instance is guaranteed feasible, with every victim in single-trip drone range of at least two candidate satellites, and the guarantee is checked by a validation report.
+Instances are built from two classic VRPTW benchmarks: Solomon (1987), with 25 to 100 customers, and the extended set of Gehring & Homberger (1999), with 200 to 1,000 customers. Every instance is guaranteed feasible, with every victim in single-trip drone range of at least two candidate satellites, and the guarantee is checked by a validation report.
 
 *(Figure: data generation pipeline · eight steps, a check and the saved files. See the online doc.)*
 
@@ -579,39 +596,45 @@ The steps run left to right on the top row and right to left on the bottom row. 
 
 **Base data.**
 
-- **Layouts:** Solomon's four distinct layouts, C1 (clustered), C2 (clustered, wider), R1 (random) and RC1 (mixed). R2 and RC2 share the coordinates of R1 and RC1.
-- **Victims:** the first n = 25, 50 or 100 customers, as in Solomon's own subsets. The Solomon depot is our depot.
-- **Dropped:** Solomon's demands (each victim needs one parcel), time windows and service times.
+- **Solomon:** n = 25, 50 or 100 victims (the first n customers, as in Solomon's own subsets) on the four distinct layouts C1, C2, R1 and RC1. R2 and RC2 share the coordinates of R1 and RC1.
+- **Gehring & Homberger:** n = 200, 400, 600, 800 or 1,000 victims (all customers) on the five distinct layouts C1, C2, R1, R2 and RC. RC1 and RC2 share coordinates, and the ten instances of a class differ only in time windows, so we use instance 1 of each class. The files come from the PyVRP instance repository.
+- **Depot:** the benchmark depot.
+- **Dropped:** demands (each victim needs one unit), time windows and service times.
 
-**Scale.** The map side L is set so that the guaranteed drone range is a fixed share of it: R₁ = αL, with α = 0.25 by default and 0.35 as a variant. With R₁ ≈ 15 km, L = 60 km (1 Solomon unit = 600 m), or about 43 km.
+**Scale.** Every map is scaled to the same 60 km × 60 km region: 1 unit = 60 km / side. That is 600 m for Solomon, and 430 m down to 120 m for Gehring & Homberger as the side grows from 140 to 500. With R₁ ≈ 15 km, the drone range is a quarter of the side (α = 0.25; a 43 km variant gives α = 0.35). Larger instances therefore mean more people in the same flooded region, not a larger region. We tested keeping 600 m per unit instead: the 1,000-victim maps stretched to 300 km, most satellites served only one or two victims, and the fleet estimate rose to 57 trucks.
 
 **Priorities.** Classes are drawn at random (20% critical, 30% high, 50% normal). In a variant, victims closer to the flood centre are more likely to be critical.
 
 **Candidate satellites (double coverage).**
 
-1. **Grid.** Candidates lie on a grid of spacing g = ρR₁ / √2, with ρ = 0.6. Every point then has the four corners of its grid cell within ρR₁, so each victim has at least four candidates in range.
+1. **Grid.** Candidates lie on a grid of spacing g = ρR₁ / √2 ≈ 6.4 km, with ρ = 0.6. Every point then has the four corners of its grid cell within ρR₁ ≈ 9 km, so each victim has at least four candidates in range.
 2. **Selection.** We choose the fewest candidates such that every victim is within ρR₁ of at least two. This is a set multicover problem, solved with CP-SAT in seconds. Candidates inside an optional no-go core of the flood zone are excluded beforehand.
-3. **Margin.** Using ρR₁ instead of R₁ leaves battery for multi-drop trips, so drones usually carry two or three parcels rather than one.
-
-The resulting number of candidates on the actual Solomon files:
-
-| Layout | n = 25 / 50 / 100, α = 0.25 | n = 25 / 50 / 100, α = 0.35 | Victims per candidate if each goes to its nearest (median, max) |
-| --- | --- | --- | --- |
-| C1 | 6 / 9 / 18 | 4 / 7 / 13 | 4–7, up to 18 |
-| C2 | 8 / 13 / 20 | 6 / 9 / 14 | 3–7, up to 11 |
-| R1 | 13 / 18 / 23 | 9 / 12 / 13 | 2–7, up to 15 |
-| RC1 | 6 / 11 / 25 | 6 / 10 / 17 | 4–6, up to 10 |
-
-The optimizer decides which candidates are used and how many victims each serves.
+3. **Margin.** A full three-unit trip can reach a cluster up to about 12.8 km away (Section 4.2), so a 9 km radius leaves battery for the detours between drops.
 
 **Fleet.**
 
-- **Trucks:** K = 2, 3 or 4 for n = 25, 50 or 100.
-- **Capacity:** Q = ⌈1.15 n / K⌉ parcels by default. A tight variant, Q = ⌈0.6 n / K⌉, forces second trips.
-- **Check:** the generator verifies that some covering assignment loads every satellite with at most Q victims, the condition of the Proposition in Section 4.4. The nearest assignment usually suffices; in the tight variant a small assignment model checks it.
-- **Drones:** U = 3 drones per truck, each carrying P = 3 parcels.
+- **Units.** A victim needs 1 unit, a drone carries P = 3 units per trip, and a truck carries Q = 500 units per trip. One unit weighs q kg (1 kg by default); only the battery model uses the weight. Drones and batteries do not count toward Q.
+- **Capacity in practice.** With Q = 500, capacity never binds: the fleet carries 3.5 to 40 times the total demand, as is realistic for light relief items. A **stress-test variant** sets Q = ⌈n / (1.5K)⌉, so total demand is about 1.5 times the fleet's capacity per trip and trucks must make second trips.
+- **Drones per truck.** U = 3 in every instance, so the fleet differs only in the number of trucks. U ∈ {1, 2, 3, 4} is an ablation.
+- **Trucks per instance.** K is sized by workload. The generator estimates the undamaged work: total drone dwell (each victim at its nearest covering satellite, three units per trip, three drones), plus one nearest-neighbour truck tour over the used satellites (×1.2 circuity, 40 km/h). It then sets K = max(2, ⌈work / 6 h⌉). An undamaged plan would finish in about 6 h, leaving room for damage within a 12-hour day.
 
-**Road graph.** Roads follow the candidate grid: each grid node links to its four neighbours, and the depot links to its four nearest nodes. Base times are the Euclidean length × 1.2 (road circuity) / vₜ. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
+Candidate satellites and trucks, from a prototype of the placement and sizing steps on the actual benchmark files:
+
+| Set | Layout | Victims | Candidate satellites | Trucks K |
+| --- | --- | --- | --- | --- |
+| Solomon | C1 | 25 / 50 / 100 | 6 / 9 / 18 | 2 / 2 / 2 |
+| Solomon | C2 | 25 / 50 / 100 | 8 / 13 / 20 | 2 / 2 / 3 |
+| Solomon | R1 | 25 / 50 / 100 | 12 / 18 / 23 | 2 / 2 / 3 |
+| Solomon | RC1 | 25 / 50 / 100 | 6 / 11 / 25 | 2 / 2 / 3 |
+| G&H | C1 | 200 / 400 / 600 / 800 / 1,000 | 25 / 32 / 35 / 35 / 37 | 4 / 4 / 5 / 6 / 7 |
+| G&H | C2 | 200 / 400 / 600 / 800 / 1,000 | 34 / 32 / 34 / 34 / 33 | 4 / 4 / 5 / 6 / 7 |
+| G&H | R1 | 200 / 400 / 600 / 800 / 1,000 | 40 / 44 / 46 / 48 / 47 | 5 / 6 / 6 / 7 / 8 |
+| G&H | R2 | 200 / 400 / 600 / 800 / 1,000 | 40 / 44 / 46 / 48 / 47 | 5 / 5 / 6 / 7 / 8 |
+| G&H | RC | 200 / 400 / 600 / 800 / 1,000 | 37 / 40 / 44 / 44 / 48 | 4 / 5 / 7 / 7 / 8 |
+
+With the region fixed, the number of candidates levels off at about 35 to 48, and the victims per satellite grow instead: a median of about 4 for Solomon, and 20 to 30 at 1,000 victims (up to 68). The optimizer decides which candidates are used and how many victims each serves.
+
+**Road graph.** Roads follow the candidate grid (about 90 junctions on the 60 km map): each grid node links to its four neighbours, and the depot links to its four nearest nodes. Base times are the Euclidean length × 1.2 (road circuity) / vₜ. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
 
 **Flood zone and scenarios.**
 
@@ -625,8 +648,11 @@ The optimizer decides which candidates are used and how many victims each serves
 
 | Parameter | Value |
 | --- | --- |
+| Map | 60 km × 60 km |
 | Truck speed vₜ, drone speed vₐ | 40 km/h, 60 km/h |
-| Parcel q, drone payload P, drones per truck U | 1 kg, 3 parcels, 3 |
+| Unit weight q | 1 kg |
+| Drone payload P, truck capacity Q | 3 units, 500 units (stress test ⌈n / (1.5K)⌉) |
+| Trucks K, drones per truck U | workload rule (2 to 8), 3 |
 | Drone energy: η, w₀, E, rₘᵢₙ | 0.667 Wh/(kg·min), 6 kg, 180 Wh, 20% |
 | Launch Sₗ, recovery Sᵣ, drop κ | 1, 2, 0.1 min |
 | Battery swap | instant, unlimited spares |
@@ -634,7 +660,7 @@ The optimizer decides which candidates are used and how many victims each serves
 | Time step Δt | 1 h (variant 30 min) |
 | Road multipliers | open 1, damaged 2.5, closed 5 |
 
-**Size of the benchmark.** 4 layouts × 3 sizes × 2 values of α = 24 instances, each with 3 intensities × 10 seeds.
+**Size of the benchmark.** 12 Solomon instances (4 layouts × 3 sizes) and 25 Gehring & Homberger instances (5 layouts × 5 sizes), 37 in total, each with 3 intensities × 10 seeds: 1,110 scenarios.
 
 ## 9. Experimental design (planned)
 
@@ -644,7 +670,7 @@ No results are reported yet. The study tests three claims:
 - the learned policy matches always re-optimizing at a fraction of the computing time;
 - each modelling choice matters, which the ablations measure.
 
-**Instances.** The 24 instances of Section 8, each at 3 intensities with 10 road seeds. Three seeds per instance are used only for training.
+**Instances.** The 37 instances of Section 8 (12 Solomon, 25 Gehring & Homberger, from 25 to 1,000 victims), each at 3 intensities with 10 road seeds. Three seeds per instance are used only for training.
 
 **Strategies compared.**
 
@@ -662,7 +688,7 @@ No results are reported yet. The study tests three claims:
 | Factor | Values | Question |
 | --- | --- | --- |
 | Drones per truck U | 1, 2, 3, 4 | How much does dwell, and with it waiting time, fall per extra drone? |
-| Multi-trip trucks | allowed / not allowed (tight Q) | What do second trips save when capacity is tight? |
+| Multi-trip trucks | Q = 500 (non-binding) vs. stress test Q = ⌈n / (1.5K)⌉, each with and without second trips | What do second trips save when capacity is tight? |
 | Drone-level re-planning | on / off (assignment and drone plans frozen at t = 0) | How much of the gain comes from re-planning the drones? |
 | Critical deadline | dominant penalty / soft (same πₗ as other classes) | How many critical misses does the dominant penalty prevent, and at what cost to others? |
 | Closed-road multiplier | ×5, ×10 | How sensitive are the results to closure severity? |
@@ -697,6 +723,7 @@ This version is deliberately simple. We would add extensions in this order:
 - Chen, X., Ulmer, M. W., & Thomas, B. W. (2022). Deep Q-learning for same-day delivery with vehicles and drones. *European Journal of Operational Research*, 298(3), 939–952. Preprint: [arXiv:1910.11901](https://arxiv.org/abs/1910.11901)
 - Du, W., Wang, J., Liu, J., Wang, H., Zhou, J., Mei, C., & Pang, Y. (2026). Optimization of emergency supplies allocation for urban flood disasters. *Results in Engineering*, 32, 112619. [doi](https://doi.org/10.1016/j.rineng.2026.112619)
 - Duan, H., Li, X., Feng, Y., Zhang, G., Lu, Q., & Meng, X. (2026). Multi-objective hyper heuristic memetic algorithm for time-dependent vehicle routing problem with drone considering simultaneous pickup and delivery. *Expert Systems with Applications*, 297, 129196. [doi](https://doi.org/10.1016/j.eswa.2025.129196)
+- Gehring, H., & Homberger, J. (1999). A parallel hybrid evolutionary metaheuristic for the vehicle routing problem with time windows. In *Proceedings of EUROGEN99*, 57–64. Instances: [SINTEF TOP](https://www.sintef.no/projectweb/top/vrptw/homberger-benchmark/), files via the [PyVRP instance repository](https://github.com/PyVRP/Instances).
 - Li, J., Guo, Q., & Fang, Y. (2026). Truck–drone cooperative delivery problem based on two-stage algorithm. *Symmetry*, 18, 1199. [doi](https://doi.org/10.3390/sym18071199)
 - Li, Q., & Gonsalves, T. (2026). A reinforcement learning framework for traveling salesman and vehicle routing problem with drones. *Drones*, 10, 616. [doi](https://doi.org/10.3390/drones10080616)
 - Luo, Y., Chen, Y., & Wahab, M. I. M. (2027). Multi-trip truck-drone routing problem with simultaneous pickup and delivery and temporal constraints. *Transportation Research Part E*, 217, 105235. [doi](https://doi.org/10.1016/j.tre.2026.105235)
