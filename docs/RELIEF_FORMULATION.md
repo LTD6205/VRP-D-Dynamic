@@ -254,7 +254,7 @@ A loaded drone drains faster, so the reachable distance shrinks with the load an
 R_1 = v_a \cdot \frac{1 - r_{\min} - e_{lr} - p(1)\,\kappa}{p(1) + p(0)}
 ```
 
-With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, rₘᵢₙ = 0.2 and vₐ = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 15 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every Vₛ has a feasible drone plan. Coverage depends only on fixed locations and the battery model, so aᵥₛ is computed once when the instance is generated (one distance check per victim–satellite pair, e.g. 100 × 25 = 2,500 checks) and never changes during operations: road damage affects only the trucks.
+With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 180 Wh), q = 1 kg, rₘᵢₙ = 0.2 and vₐ = 60 km/h, we get p(1) ≈ 0.026 and p(0) ≈ 0.022 per minute, so **R₁ ≈ 16.6 km**. We keep the per-minute drain at its cruise value, a simplification. Since every victim is assigned only to a satellite that covers it, a trip to v alone is always feasible, so every Vₛ has a feasible drone plan. Coverage depends only on fixed locations and the battery model, so aᵥₛ is computed once when the instance is generated (one distance check per victim–satellite pair, e.g. 100 × 25 = 2,500 checks) and never changes during operations: road damage affects only the trucks.
 
 **Battery figures.** At a constant 60 km/h, the drain per minute equals the drain per kilometre. The table gives it for each load, with the distance a drone could fly on the usable 80% of the battery while carrying that load:
 
@@ -265,16 +265,16 @@ With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 18
 | 2 | 2.96% | 27 km |
 | 3 | 3.33% | 24 km |
 
-Launch (1 min, loaded) and recovery (2 min, empty) together cost about 7–8% of the battery. Three reference figures follow. They are not limits that a trip must fall between: every trip is checked on its own energy, as described next.
+Launch and recovery are taken as instantaneous (Sₗ = Sᵣ = 0), so only flying and the 0.1-minute hover at each drop use energy. Three reference figures follow. They are not limits that a trip must fall between: every trip is checked on its own energy, as described next.
 
-- **Single-unit round trip:** out with one unit and back empty, up to R₁ ≈ 15.1 km. This is the coverage radius.
-- **Full three-unit trip:** to a cluster of victims up to about 12.8 km away.
-- **Worked example:** a trip that flies 6 km out, drops at three victims 3 km apart and returns 7 km takes 22.3 min and uses 61% of the battery, inside the 80% limit.
+- **Single-unit round trip:** out with one unit and back empty, up to R₁ ≈ 16.6 km. This is the coverage radius.
+- **Full three-unit trip:** to a cluster of victims up to about 14.2 km away.
+- **Worked example:** a trip that flies 6 km out, drops at three victims 3 km apart and returns 7 km takes 19.3 min and uses 53% of the battery, inside the 80% limit.
 
 **How a trip is checked.** A candidate trip is a satellite s and an ordered list of victims (v₁, …, vₘ), with m ≤ 3. Each trip starts on a full battery, because batteries are swapped instantly. Distances are in km, which equal minutes at 60 km/h. The check has four steps:
 
 1. **Units on board.** The drone leaves with m units. After the i-th drop it carries m − i, and it flies home empty.
-2. **Energy of each part.** Launch: p(m) × 1 min. Each leg: p(units on board) × leg length. Each drop: p(units on board) × 0.1 min hover. Recovery: p(0) × 2 min.
+2. **Energy of each part.** Each leg: p(units on board) × leg length. Each drop: p(units on board) × 0.1 min hover. Launch and recovery take no time and no energy (Sₗ = Sᵣ = 0).
 3. **Total.** Add the parts:
 
 ```latex
@@ -285,19 +285,19 @@ Here ℓ₀ is the leg from s to v₁, ℓᵢ the leg from vᵢ to vᵢ₊₁, a
 
 4. **Decision.** The trip is feasible if eᵨ ≤ 1 − rₘᵢₙ = 0.80, so at least 20% of the battery is left on landing. Otherwise it is rejected.
 
-**Worked example.** The first victim is 13 km from the satellite, the other two lie 1 km apart beyond it, and the way back is 13.5 km.
+**Worked example.** The first victim is 14 km from the satellite, the other two lie 1 km apart beyond it, and the way back is 14.5 km.
 
-| Trip option | Energy used | Feasible |
-| --- | --- | --- |
-| All three victims in one trip | 87.6% | No |
-| Two victims in one trip (13 km out, 2 km between, back) | 81.7% | No |
-| One victim per trip (13 km out, 13 km back) | 69.9% | Yes |
+| Trip option | Energy used | Time | Feasible |
+| --- | --- | --- | --- |
+| All three victims in one trip | 85.4% | 30.8 min | No |
+| Two victims in one trip (14 km out, 2 km between, back) | 79.5% | 30.7 min | Yes |
+| One victim per trip (14 km out, 14 km back) | 67.7% | 28.1 min | Yes |
 
-These three victims therefore get three single-unit trips, flown by the three drones at the same time, so the dwell is one trip of about 29 minutes. Victims closer to the satellite share trips: the 22.3-minute three-drop trip above uses 61%.
+All three victims cannot share a trip, but two can. The solver therefore compares two plans: {v₁ v₂}{v₃}, and three single trips. With three drones flying in parallel, both give a dwell of about half an hour (30.7 and 28.1 min), and the objective decides between them. Victims closer to the satellite share trips: the 19.3-minute three-drop trip above uses 53%.
 
-**How the solver chooses trips.** The drone solver orders the satellite's victims into one tour, then the split step (Section 6.1) considers every way to cut that tour into consecutive trips of at most three victims. For the example tour (v₁, v₂, v₃) these are {v₁ v₂ v₃}, {v₁ v₂}{v₃}, {v₁}{v₂ v₃} and {v₁}{v₂}{v₃}. Every candidate trip goes through the four-step check, failing trips are discarded, and the best remaining split is kept. A feasible split always exists: every assigned victim is within R₁ ≈ 15.1 km of its satellite, and a single-unit trip to such a victim always passes. Far victims thus get trips of one or two units, near victims trips of three.
+**How the solver chooses trips.** The drone solver orders the satellite's victims into one tour, then the split step (Section 6.1) considers every way to cut that tour into consecutive trips of at most three victims. For the example tour (v₁, v₂, v₃) these are {v₁ v₂ v₃}, {v₁ v₂}{v₃}, {v₁}{v₂ v₃} and {v₁}{v₂}{v₃}. Every candidate trip goes through the four-step check, failing trips are discarded, and the best remaining split is kept. A feasible split always exists: every assigned victim is within R₁ ≈ 16.6 km of its satellite, and a single-unit trip to such a victim always passes. Far victims thus get trips of one or two units, near victims trips of three.
 
-**Victims beyond the 9 km planning margin.** The generator gives every victim two candidates within 9 km, where three-unit trips usually fit. A victim may still be served from any satellite within 15.1 km, for example after a re-assignment; the check above then simply forms smaller trips for it.
+**Victims beyond the 10 km planning margin.** The generator gives every victim two candidates within 10 km, where three-unit trips usually fit. A victim may still be served from any satellite within 16.6 km, for example after a re-assignment; the check above then simply forms smaller trips for it.
 
 **Tracking the battery during execution.**
 
@@ -633,20 +633,20 @@ The steps run left to right on the top row and right to left on the bottom row. 
 - **Depot:** the benchmark depot.
 - **Dropped:** demands (each victim needs one unit), time windows and service times.
 
-**Scale.** Every map is scaled to the same 60 km × 60 km region: 1 unit = 60 km / side. That is 600 m for Solomon, and 430 m down to 120 m for Gehring & Homberger as the side grows from 140 to 500. With R₁ ≈ 15 km, the drone range is a quarter of the side (α = 0.25; a 43 km variant gives α = 0.35). Larger instances therefore mean more people in the same flooded region, not a larger region. We tested keeping 600 m per unit instead: the 1,000-victim maps stretched to 300 km, most satellites served only one or two victims, and the fleet estimate rose to 57 trucks.
+**Scale.** Every map is scaled to the same 60 km × 60 km region: 1 unit = 60 km / side. That is 600 m for Solomon, and 430 m down to 120 m for Gehring & Homberger as the side grows from 140 to 500. With R₁ ≈ 16.6 km, the drone range is about 0.28 of the side (α ≈ 0.28; a 43 km variant gives α ≈ 0.39). Larger instances therefore mean more people in the same flooded region, not a larger region. We tested keeping 600 m per unit instead: the 1,000-victim maps stretched to 300 km, most satellites served only one or two victims, and the fleet estimate rose to 57 trucks.
 
 **Priorities.** Classes are drawn at random (20% critical, 30% high, 50% normal). In a variant, victims closer to the flood centre are more likely to be critical.
 
 **Candidate satellites (double coverage).**
 
-1. **Grid.** Candidates lie on a grid of spacing g = ρR₁ / √2 ≈ 6.4 km, with ρ = 0.6. Every point then has the four corners of its grid cell within ρR₁ ≈ 9 km, so each victim has at least four candidates in range.
+1. **Grid.** Candidates lie on a grid of spacing g = ρR₁ / √2 ≈ 7.0 km, with ρ = 0.6. Every point then has the four corners of its grid cell within ρR₁ ≈ 10 km, so each victim has at least four candidates in range.
 2. **Selection.** We choose the fewest candidates such that every victim is within ρR₁ of at least two. This is a set multicover problem, solved with CP-SAT in seconds. Candidates inside an optional no-go core of the flood zone are excluded beforehand.
-3. **Margin.** A full three-unit trip can reach a cluster up to about 12.8 km away (Section 4.2), so a 9 km radius leaves battery for the detours between drops.
+3. **Margin.** A full three-unit trip can reach a cluster up to about 14.2 km away (Section 4.2), so a 10 km radius leaves battery for the detours between drops.
 
 **Fleet.**
 
 - **Units.** A victim needs 1 unit, a drone carries P = 3 units per trip, and a truck carries Q = 500 units per trip. One unit weighs q kg (1 kg by default); only the battery model uses the weight. Drones and batteries do not count toward Q.
-- **Capacity in practice.** With Q = 500, capacity never binds: the fleet carries 3.5 to 40 times the total demand, as is realistic for light relief items. A **stress-test variant** sets Q = ⌈n / (1.5K)⌉, so total demand is about 1.5 times the fleet's capacity per trip and trucks must make second trips.
+- **Capacity in practice.** With Q = 500, capacity never binds: the fleet carries 3 to 40 times the total demand, as is realistic for light relief items. A **stress-test variant** sets Q = ⌈n / (1.5K)⌉, so total demand is about 1.5 times the fleet's capacity per trip and trucks must make second trips.
 - **Drones per truck.** U = 3 in every instance, so the fleet differs only in the number of trucks. U ∈ {1, 2, 3, 4} is an ablation.
 - **Trucks per instance.** K is sized by workload. The generator estimates the undamaged work: total drone dwell (each victim at its nearest covering satellite, three units per trip, three drones), plus one nearest-neighbour truck tour over the used satellites (×1.2 circuity, 40 km/h). It then sets K = max(2, ⌈work / 6 h⌉). An undamaged plan would finish in about 6 h, leaving room for damage within a 12-hour day.
 
@@ -654,19 +654,19 @@ Candidate satellites and trucks, from a prototype of the placement and sizing st
 
 | Set | Layout | Victims | Candidate satellites | Trucks K |
 | --- | --- | --- | --- | --- |
-| Solomon | C1 | 25 / 50 / 100 | 6 / 9 / 18 | 2 / 2 / 2 |
-| Solomon | C2 | 25 / 50 / 100 | 8 / 13 / 20 | 2 / 2 / 3 |
-| Solomon | R1 | 25 / 50 / 100 | 12 / 18 / 23 | 2 / 2 / 3 |
-| Solomon | RC1 | 25 / 50 / 100 | 6 / 11 / 25 | 2 / 2 / 3 |
-| G&H | C1 | 200 / 400 / 600 / 800 / 1,000 | 25 / 32 / 35 / 35 / 37 | 4 / 4 / 5 / 6 / 7 |
-| G&H | C2 | 200 / 400 / 600 / 800 / 1,000 | 34 / 32 / 34 / 34 / 33 | 4 / 4 / 5 / 6 / 7 |
-| G&H | R1 | 200 / 400 / 600 / 800 / 1,000 | 40 / 44 / 46 / 48 / 47 | 5 / 6 / 6 / 7 / 8 |
-| G&H | R2 | 200 / 400 / 600 / 800 / 1,000 | 40 / 44 / 46 / 48 / 47 | 5 / 5 / 6 / 7 / 8 |
-| G&H | RC | 200 / 400 / 600 / 800 / 1,000 | 37 / 40 / 44 / 44 / 48 | 4 / 5 / 7 / 7 / 8 |
+| Solomon | C1 | 25 / 50 / 100 | 5 / 9 / 19 | 2 / 2 / 2 |
+| Solomon | C2 | 25 / 50 / 100 | 7 / 12 / 19 | 2 / 2 / 3 |
+| Solomon | R1 | 25 / 50 / 100 | 12 / 18 / 20 | 2 / 2 / 3 |
+| Solomon | RC1 | 25 / 50 / 100 | 6 / 11 / 23 | 2 / 2 / 3 |
+| G&H | C1 | 200 / 400 / 600 / 800 / 1,000 | 25 / 29 / 28 / 33 / 34 | 3 / 4 / 5 / 5 / 6 |
+| G&H | C2 | 200 / 400 / 600 / 800 / 1,000 | 29 / 28 / 28 / 29 / 29 | 4 / 4 / 5 / 5 / 6 |
+| G&H | R1 | 200 / 400 / 600 / 800 / 1,000 | 37 / 38 / 41 / 43 / 44 | 4 / 5 / 6 / 6 / 7 |
+| G&H | R2 | 200 / 400 / 600 / 800 / 1,000 | 37 / 38 / 41 / 43 / 44 | 4 / 5 / 6 / 6 / 7 |
+| G&H | RC | 200 / 400 / 600 / 800 / 1,000 | 34 / 36 / 36 / 40 / 44 | 4 / 5 / 5 / 6 / 7 |
 
-With the region fixed, the number of candidates levels off at about 35 to 48, and the victims per satellite grow instead: a median of about 4 for Solomon, and 20 to 30 at 1,000 victims (up to 68). The optimizer decides which candidates are used and how many victims each serves.
+With the region fixed, the number of candidates levels off at about 28 to 44, and the victims per satellite grow instead: a median of about 4 for Solomon, and 23 to 28 at 1,000 victims (up to 83). The optimizer decides which candidates are used and how many victims each serves.
 
-**Road graph.** Roads follow the candidate grid (about 90 junctions on the 60 km map): each grid node links to its four neighbours, and the depot links to its four nearest nodes. Base times are the Euclidean length × 1.2 (road circuity) / vₜ. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
+**Road graph.** Roads follow the candidate grid (about 75 junctions on the 60 km map): each grid node links to its four neighbours, and the depot links to its four nearest nodes. Base times are the Euclidean length × 1.2 (road circuity) / vₜ. A grid has no bridge edges, so every satellite has at least two separate paths to the depot.
 
 **Flood zone and scenarios.**
 
@@ -684,11 +684,11 @@ With the region fixed, the number of candidates levels off at about 35 to 48, an
 | Truck speed vₜ, drone speed vₐ | 40 km/h, 60 km/h |
 | Unit weight q | 1 kg |
 | Drone payload P, truck capacity Q | 3 units, 500 units (stress test ⌈n / (1.5K)⌉) |
-| Trucks K, drones per truck U | workload rule (2 to 8), 3 |
+| Trucks K, drones per truck U | workload rule (2 to 7), 3 |
 | Drone energy: η, w₀, E, rₘᵢₙ | 0.667 Wh/(kg·min), 6 kg, 180 Wh, 20% |
-| Launch Sₗ, recovery Sᵣ, drop κ | 1, 2, 0.1 min |
+| Launch Sₗ, recovery Sᵣ, drop κ | 0, 0, 0.1 min |
 | Battery swap | instant, unlimited spares |
-| Truck reload θ | 15 min |
+| Truck reload θ | 0 (instant) |
 | Time step Δt | 1 h (variant 30 min) |
 | Road multipliers | open 1, damaged 2.5, closed 5 |
 
@@ -727,7 +727,7 @@ No results are reported yet. The study tests three claims:
 | Drone solver | Giant tour | Nearest neighbour, then 2-opt | Section 6.1 |
 | Drone solver | Menu size | 2–4 non-dominated plans per satellite | Section 6.1 |
 | Drone solver | Battery check | Trip energy ≤ 80% (rₘᵢₙ = 20%) | Section 4.2 |
-| Generator | Coverage | ≥ 2 candidates within ρR₁, ρ = 0.6 (≈ 9 km) | Section 8 |
+| Generator | Coverage | ≥ 2 candidates within ρR₁, ρ = 0.6 (≈ 10 km) | Section 8 |
 | Generator | Placement solver | CP-SAT, 30 s limit | Section 8 |
 | Generator | Fleet sizing target | Undamaged workload ≤ 6 h per truck | Section 8 |
 | Generator | Road circuity | ×1.2 | Section 8 |
@@ -768,7 +768,7 @@ No results are reported yet. The study tests three claims:
 | Critical deadline | dominant penalty / soft (same πₗ as other classes) | How many critical misses does the dominant penalty prevent, and at what cost to others? |
 | Closed-road multiplier | ×5, ×10 | How sensitive are the results to closure severity? |
 | Time step Δt | 1 h, 30 min | Does re-planning more often pay off? |
-| Range share α | 0.25, 0.35 | How does drone range relative to the map change satellite use? |
+| Range share α | 0.28, 0.39 | How does drone range relative to the map change satellite use? |
 
 **Metrics.**
 
