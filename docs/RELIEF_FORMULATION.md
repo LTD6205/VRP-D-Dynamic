@@ -704,6 +704,49 @@ No results are reported yet. The study tests three claims:
 
 **Instances.** The 37 instances of Section 8 (12 Solomon, 25 Gehring & Homberger, from 25 to 1,000 victims), each at 3 intensities with 10 road seeds. Three seeds per instance are used only for training.
 
+**Default settings and hyperparameters.** Instance and vehicle parameters are listed in Section 8. The table below lists the defaults of the method itself. Values marked "proposed" are starting points to be tuned in preliminary runs on the training seeds; the others are fixed by the model or taken from the cited source.
+
+| Group | Setting | Default | Note |
+| --- | --- | --- | --- |
+| Objective | Priority weights wᵥ (critical / high / normal) | 5 / 2 / 1 | Section 3 |
+| Objective | Targets Dᵥ (critical / high / normal) | 2 h / 4 h / 8 h | Critical: dominant penalty; others soft |
+| Objective | Critical-deadline penalty Π | 10⁴ | Proposed; larger than any J₁ + λJ₂, so deadlines dominate |
+| Objective | Lateness weight πₗ | 2 per hour late | Proposed |
+| Objective | Cost weights cₜ, cₐ and λ | 1 per truck-hour, 0.5 per full battery, λ = 0.05 | Proposed; keeps cost secondary to waiting time |
+| Re-planning | Time step Δt | 1 h (30 min variant) | Section 5 |
+| Re-planning | Level thresholds ε₁, ε₂ | 1%, 5% of J | Rule of Section 5.4 |
+| Re-planning | L2 time budget | 2 s (short) or 10 s (long) | Section 7.1 actions |
+| Re-planning | First plan at t = 0 | 30 s | Section 6.2 |
+| ALNS | Destroy size | 10–30% of used satellites, drawn uniformly | Section 6.2 |
+| ALNS | Operator scores (new best / improving / accepted) | 33 / 9 / 13 | Ropke & Pisinger (2006) |
+| ALNS | Weight update | Every 100 iterations, reaction factor 0.1 | Ropke & Pisinger (2006) |
+| ALNS | Annealing start temperature | Accepts a 5% worse plan with probability 0.5 | Proposed |
+| ALNS | Cooling | Geometric, down to accepting a 0.1% worse plan by the end of the budget | Proposed |
+| ALNS | Repair | Greedy and regret-2 insertion | Section 6.2 |
+| Drone solver | Units per trip | At most 3 (P) | Section 3 |
+| Drone solver | Giant tour | Nearest neighbour, then 2-opt | Section 6.1 |
+| Drone solver | Menu size | 2–4 non-dominated plans per satellite | Section 6.1 |
+| Drone solver | Battery check | Trip energy ≤ 80% (rₘᵢₙ = 20%) | Section 4.2 |
+| Generator | Coverage | ≥ 2 candidates within ρR₁, ρ = 0.6 (≈ 9 km) | Section 8 |
+| Generator | Placement solver | CP-SAT, 30 s limit | Section 8 |
+| Generator | Fleet sizing target | Undamaged workload ≤ 6 h per truck | Section 8 |
+| Generator | Road circuity | ×1.2 | Section 8 |
+| Generator | Flood zone | About 30% of roads | Section 5.1 |
+| Generator | Priority mix | 20% / 30% / 50% | Section 8 |
+| Generator | Deadline relaxation | ⌈1.2 × lower bound⌉ when unreachable | Section 8 |
+| Generator | Seeds | 10 per instance and intensity, 3 for training | Section 8 |
+| Re-planning policy (DQN) | Network | 2 hidden layers of 64, ReLU | Section 7.1 |
+| Re-planning policy (DQN) | Learning rate, batch | 10⁻³ (Adam), 64 | Proposed |
+| Re-planning policy (DQN) | Discount γ | 1.0 | Episodes are finite, and the return equals the realized objective |
+| Re-planning policy (DQN) | Replay buffer, target update | 50,000 transitions, every 500 updates | Proposed |
+| Re-planning policy (DQN) | Exploration ε | 1.0 → 0.05 over the first 2,000 episodes | Proposed |
+| Re-planning policy (DQN) | Training | 5,000 episodes; first 200 filled by the fixed rule | Proposed |
+| Re-planning policy (DQN) | Computing-time penalty λ\_cpu | 0.01 per CPU second | Proposed |
+| Operator selector (DQN) | Network, actions | 2 hidden layers of 64, 10 (destroy, repair) pairs | Section 7.2 |
+| Operator selector (DQN) | Learning rate, batch, γ | 10⁻³, 64, 0.9 | Proposed |
+| Operator selector (DQN) | Replay buffer, exploration | 20,000 transitions, ε 0.3 → 0.05 | Proposed |
+| Operator selector (DQN) | Reward bonus for a new best | +1 | Section 7.2 |
+
 **Strategies compared.**
 
 | Strategy | Description |
