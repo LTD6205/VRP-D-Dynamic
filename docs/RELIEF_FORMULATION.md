@@ -265,13 +265,45 @@ With the drone of Meng & Ma (2026) (η = 0.667 Wh/(kg·min), w₀ = 6 kg, E = 18
 | 2 | 2.96% | 27 km |
 | 3 | 3.33% | 24 km |
 
-Launch (1 min, loaded) and recovery (2 min, empty) together cost about 7–8% of the battery. Three figures follow:
+Launch (1 min, loaded) and recovery (2 min, empty) together cost about 7–8% of the battery. Three reference figures follow. They are not limits that a trip must fall between: every trip is checked on its own energy, as described next.
 
 - **Single-unit round trip:** out with one unit and back empty, up to R₁ ≈ 15.1 km. This is the coverage radius.
 - **Full three-unit trip:** to a cluster of victims up to about 12.8 km away.
 - **Worked example:** a trip that flies 6 km out, drops at three victims 3 km apart and returns 7 km takes 22.3 min and uses 61% of the battery, inside the 80% limit.
 
-The solver accepts a trip only if its energy, summed leg by leg with the load falling after each drop, is at most 80%. If one unit is set to weigh something other than 1 kg, p(n) and all these distances are recomputed from the same formula.
+**How a trip is checked.** A candidate trip is a satellite s and an ordered list of victims (v₁, …, vₘ), with m ≤ 3. Each trip starts on a full battery, because batteries are swapped instantly. Distances are in km, which equal minutes at 60 km/h. The check has four steps:
+
+1. **Units on board.** The drone leaves with m units. After the i-th drop it carries m − i, and it flies home empty.
+2. **Energy of each part.** Launch: p(m) × 1 min. Each leg: p(units on board) × leg length. Each drop: p(units on board) × 0.1 min hover. Recovery: p(0) × 2 min.
+3. **Total.** Add the parts:
+
+```latex
+e_\rho = p(m)\cdot S_l + \sum_{i=0}^{m} p(m-i)\,\frac{\ell_i}{v_a} + \sum_{i=1}^{m} p(m-i+1)\,\kappa + p(0)\cdot S_r
+```
+
+Here ℓ₀ is the leg from s to v₁, ℓᵢ the leg from vᵢ to vᵢ₊₁, and ℓₘ the leg from vₘ back to s.
+
+4. **Decision.** The trip is feasible if eᵨ ≤ 1 − rₘᵢₙ = 0.80, so at least 20% of the battery is left on landing. Otherwise it is rejected.
+
+**Worked example.** The first victim is 13 km from the satellite, the other two lie 1 km apart beyond it, and the way back is 13.5 km.
+
+| Trip option | Energy used | Feasible |
+| --- | --- | --- |
+| All three victims in one trip | 87.6% | No |
+| Two victims in one trip (13 km out, 2 km between, back) | 81.7% | No |
+| One victim per trip (13 km out, 13 km back) | 69.9% | Yes |
+
+These three victims therefore get three single-unit trips, flown by the three drones at the same time, so the dwell is one trip of about 29 minutes. Victims closer to the satellite share trips: the 22.3-minute three-drop trip above uses 61%.
+
+**How the solver chooses trips.** The drone solver orders the satellite's victims into one tour, then the split step (Section 6.1) considers every way to cut that tour into consecutive trips of at most three victims. For the example tour (v₁, v₂, v₃) these are {v₁ v₂ v₃}, {v₁ v₂}{v₃}, {v₁}{v₂ v₃} and {v₁}{v₂}{v₃}. Every candidate trip goes through the four-step check, failing trips are discarded, and the best remaining split is kept. A feasible split always exists: every assigned victim is within R₁ ≈ 15.1 km of its satellite, and a single-unit trip to such a victim always passes. Far victims thus get trips of one or two units, near victims trips of three.
+
+**Victims beyond the 9 km planning margin.** The generator gives every victim two candidates within 9 km, where three-unit trips usually fit. A victim may still be served from any satellite within 15.1 km, for example after a re-assignment; the check above then simply forms smaller trips for it.
+
+**Tracking the battery during execution.**
+
+- **In the plan:** each accepted trip stores its battery level after every leg and drop, so the plan shows the charge left at each delivery.
+- **In the simulation:** every drone starts each trip at 100% and subtracts the same leg energies as it flies. Drones do not use roads and fly at a constant speed, so a trip that passed the check cannot run out mid-flight; road damage never changes drone feasibility.
+- **In the results:** the simulator logs the lowest battery level reached on each trip, so the experiments can report how close trips come to the 20% reserve.
 
 **Schedule with instant battery swaps.** Drone u flies trips ρᵤ₁, …, ρᵤₙ back to back. With times measured from the truck's arrival:
 
