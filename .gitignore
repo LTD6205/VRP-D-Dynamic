@@ -9,3 +9,6 @@ gurobi.log
 .DS_Store
 instances/.drone_cache/
 results/logs_*.txt
+
+# road-network instances are regenerated deterministically by scripts/generate_road_instances.py
+instances/road/*.json
